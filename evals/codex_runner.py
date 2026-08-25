@@ -652,6 +652,8 @@ def _invoke_codex(
         "-c",
         'approval_policy="never"',
         "-c",
+        'sandbox_mode="workspace-write"',
+        "-c",
         'model_reasoning_effort="medium"',
         "-c",
         'service_tier="default"',

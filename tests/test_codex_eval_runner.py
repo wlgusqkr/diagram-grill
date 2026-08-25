@@ -460,6 +460,7 @@ class RunLifecycleTests(unittest.TestCase):
                 )
 
             command = run.call_args.args[0]
+            self.assertIn('sandbox_mode="workspace-write"', command)
             self.assertIn("shell_environment_policy.inherit=all", command)
             self.assertTrue(
                 any(
@@ -478,6 +479,18 @@ class RunLifecycleTests(unittest.TestCase):
                 str(run_dir / "workspace" / ".eval-shell"), environment["ZDOTDIR"]
             )
             self.assertEqual(SESSION_ID, result["session_id"])
+
+            state["session_id"] = SESSION_ID
+            with mock.patch.object(
+                codex_runner.subprocess, "run", return_value=completed
+            ) as resumed_run:
+                codex_runner._invoke_codex(
+                    run_dir, state, "resume prompt", 2, False, 30
+                )
+
+            resumed_command = resumed_run.call_args.args[0]
+            self.assertIn("resume", resumed_command)
+            self.assertIn('sandbox_mode="workspace-write"', resumed_command)
 
 
 if __name__ == "__main__":
