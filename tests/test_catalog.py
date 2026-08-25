@@ -10,7 +10,12 @@ from diagrams import Node
 # Load the owned module directly so this unit test does not depend on optional
 # imports exposed by the package-level __init__.py.
 _CATALOG_PATH = (
-    Path(__file__).resolve().parents[1] / "scripts" / "diagram_grill" / "catalog.py"
+    Path(__file__).resolve().parents[1]
+    / "skills"
+    / "diagram-grill"
+    / "scripts"
+    / "diagram_grill"
+    / "catalog.py"
 )
 _CATALOG_SPEC = importlib.util.spec_from_file_location(
     "diagram_grill_catalog_under_test", _CATALOG_PATH

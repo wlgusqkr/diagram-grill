@@ -9,6 +9,8 @@ from pathlib import Path
 
 MODULE_PATH = (
     Path(__file__).resolve().parents[1]
+    / "skills"
+    / "diagram-grill"
     / "scripts"
     / "diagram_grill"
     / "preflight.py"

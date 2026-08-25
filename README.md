@@ -24,7 +24,8 @@ published.
 
 - Python 3.9+
 - Graphviz `dot`
-- Python dependencies pinned in `requirements.txt`
+- Python dependencies pinned in
+  [`skills/diagram-grill/requirements.txt`](skills/diagram-grill/requirements.txt)
 
 The future `npx skills add wlgusqkr/diagram-grill` command installs the Agent
 Skill files; it does not install Python or Graphviz.
@@ -32,5 +33,6 @@ Skill files; it does not install Python or Graphviz.
 ## License
 
 MIT. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for upstream
-attribution.
-
+attribution. The installable runtime is isolated under
+[`skills/diagram-grill/`](skills/diagram-grill/) so development tests and
+evaluation oracles are never copied into a user's agent directory.

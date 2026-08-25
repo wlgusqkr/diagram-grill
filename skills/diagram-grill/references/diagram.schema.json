@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/wlgusqkr/diagram-grill/blob/main/references/diagram.schema.json",
+  "$id": "https://github.com/wlgusqkr/diagram-grill/blob/main/skills/diagram-grill/references/diagram.schema.json",
   "title": "Diagram Grill Architecture IR",
   "description": "The versioned, reviewable source of truth for a rendered architecture diagram.",
   "type": "object",

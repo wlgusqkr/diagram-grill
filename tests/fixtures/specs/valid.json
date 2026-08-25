@@ -1,5 +1,5 @@
 {
-  "$schema": "../../../references/diagram.schema.json",
+  "$schema": "../../../skills/diagram-grill/references/diagram.schema.json",
   "schema_version": "1.0",
   "title": "Checkout architecture",
   "slug": "checkout-architecture",

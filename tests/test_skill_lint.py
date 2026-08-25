@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+SKILL_ROOT = REPOSITORY_ROOT / "skills" / "diagram-grill"
 LINTER_PATH = REPOSITORY_ROOT / "scripts" / "lint_skill.py"
 MODULE_SPEC = importlib.util.spec_from_file_location("diagram_grill_skill_lint", LINTER_PATH)
 if MODULE_SPEC is None or MODULE_SPEC.loader is None:
@@ -15,7 +16,7 @@ MODULE_SPEC.loader.exec_module(LINTER)
 
 class SkillLintTests(unittest.TestCase):
     def test_repository_skill_contract_is_valid(self):
-        self.assertEqual([], LINTER.collect_issues(REPOSITORY_ROOT))
+        self.assertEqual([], LINTER.collect_issues(SKILL_ROOT))
 
     def test_manual_invocation_extensions_are_required(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

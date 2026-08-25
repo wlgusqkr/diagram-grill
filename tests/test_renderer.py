@@ -11,6 +11,8 @@ from types import SimpleNamespace
 
 MODULE_PATH = (
     Path(__file__).resolve().parents[1]
+    / "skills"
+    / "diagram-grill"
     / "scripts"
     / "diagram_grill"
     / "renderer.py"

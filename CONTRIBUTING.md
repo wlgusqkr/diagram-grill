@@ -15,7 +15,7 @@ Create a virtual environment and install the pinned Python dependencies:
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r skills/diagram-grill/requirements.txt
 ```
 
 Run the test suite before submitting a change:
@@ -36,4 +36,3 @@ python -m unittest discover -s tests -v
 
 Use conventional commit subjects such as `feat:`, `fix:`, `test:`, `docs:`,
 and `chore:`.
-

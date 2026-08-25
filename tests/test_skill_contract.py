@@ -4,12 +4,13 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-SKILL_PATH = REPOSITORY_ROOT / "SKILL.md"
-OPENAI_YAML_PATH = REPOSITORY_ROOT / "agents" / "openai.yaml"
+SKILL_ROOT = REPOSITORY_ROOT / "skills" / "diagram-grill"
+SKILL_PATH = SKILL_ROOT / "SKILL.md"
+OPENAI_YAML_PATH = SKILL_ROOT / "agents" / "openai.yaml"
 REFERENCE_PATHS = {
-    "workflow": REPOSITORY_ROOT / "references" / "workflow.md",
-    "architecture-brief": REPOSITORY_ROOT / "references" / "architecture-brief.md",
-    "security": REPOSITORY_ROOT / "references" / "security.md",
+    "workflow": SKILL_ROOT / "references" / "workflow.md",
+    "architecture-brief": SKILL_ROOT / "references" / "architecture-brief.md",
+    "security": SKILL_ROOT / "references" / "security.md",
 }
 
 
@@ -88,7 +89,7 @@ class SkillEntrypointContractTests(ContractAssertionsMixin, unittest.TestCase):
         for relative_path in sorted(linked_paths):
             with self.subTest(relative_path=relative_path):
                 self.assertTrue(
-                    (REPOSITORY_ROOT / relative_path).is_file(),
+                    (SKILL_ROOT / relative_path).is_file(),
                     "SKILL.md links a missing local reference: {}".format(
                         relative_path
                     ),

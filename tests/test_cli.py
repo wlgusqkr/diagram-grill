@@ -10,7 +10,8 @@ from unittest import mock
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
+SKILL_ROOT = REPOSITORY_ROOT / "skills" / "diagram-grill"
+sys.path.insert(0, str(SKILL_ROOT / "scripts"))
 
 import diagram_grill_cli as cli  # noqa: E402
 from diagram_grill.catalog import CatalogEntry, NodeCatalogError  # noqa: E402

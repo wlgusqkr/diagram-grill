@@ -10,8 +10,7 @@ from typing import Dict, List
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-SKILL_PATH = REPOSITORY_ROOT / "SKILL.md"
-OPENAI_CONFIG_PATH = REPOSITORY_ROOT / "agents" / "openai.yaml"
+SKILL_ROOT = REPOSITORY_ROOT / "skills" / "diagram-grill"
 ALLOWED_TOP_LEVEL_KEYS = frozenset(
     ("name", "description", "license", "metadata", "disable-model-invocation")
 )
@@ -40,7 +39,7 @@ def _top_level_values(frontmatter: str) -> Dict[str, str]:
     return values
 
 
-def collect_issues(root: Path = REPOSITORY_ROOT) -> List[str]:
+def collect_issues(root: Path = SKILL_ROOT) -> List[str]:
     issues: List[str] = []
     skill_path = root / "SKILL.md"
     config_path = root / "agents" / "openai.yaml"
