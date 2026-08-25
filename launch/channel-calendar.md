@@ -28,8 +28,9 @@ slot, not authorization to publish. Skip a slot if its gate is incomplete.
 - Prepare the GitHub landing assets: one-sentence problem, verified demo,
   install command, copyable prompt, actual Before/After, limitations, license,
   and evidence links.
-- Verify that `npx skills add wlgusqkr/diagram-grill` installs only the runtime
-  skill directory from the public candidate.
+- Verify the README's release-tagged, version-pinned `npx skills` command and
+  confirm that it installs only the runtime skill directory from the public
+  candidate.
 - Prepare release notes that distinguish implemented behavior, evaluated
   behavior, and planned work.
 - Do not invite or claim human beta users; this launch uses an automated gate.
