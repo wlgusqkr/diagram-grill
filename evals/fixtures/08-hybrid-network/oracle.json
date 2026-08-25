@@ -1,0 +1,106 @@
+{
+  "id": "08-hybrid-network",
+  "title": "Office-to-cloud hybrid network",
+  "input_kind": "Terraform evidence",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "The cloud VPC has CIDR 10.40.0.0/16 and contains a private subnet.",
+      "evidence": [
+        {
+          "path": "infra/network.tf",
+          "line_start": 1,
+          "line_end": 8
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "An office customer gateway is configured with BGP ASN 65010.",
+      "evidence": [
+        {
+          "path": "infra/network.tf",
+          "line_start": 10,
+          "line_end": 14
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "An IPsec VPN connects the office customer gateway to a VPN gateway attached to the VPC.",
+      "evidence": [
+        {
+          "path": "infra/network.tf",
+          "line_start": 16,
+          "line_end": 24
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "route-control",
+      "question": "Which prefixes are advertised in each direction, and is propagation automatic or static?",
+      "why_it_matters": "No route tables or propagation resources are present."
+    },
+    {
+      "id": "resilience",
+      "question": "Is one logical VPN sufficient, or must the diagram show redundant customer-side devices and failover?",
+      "why_it_matters": "Customer-side redundancy is not represented in Terraform."
+    },
+    {
+      "id": "dns-resolution",
+      "question": "How should names resolve across the office and cloud boundary?",
+      "why_it_matters": "The configuration contains no hybrid DNS components."
+    },
+    {
+      "id": "firewall-ownership",
+      "question": "Where are traffic inspection and firewall policy enforced?",
+      "why_it_matters": "The VPN alone does not establish a security-control boundary."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "office network",
+      "customer gateway",
+      "IPsec VPN",
+      "cloud VPN gateway",
+      "cloud VPC",
+      "private subnet"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "office network",
+        "to": "customer gateway",
+        "type": "data"
+      },
+      {
+        "id": "connection-2",
+        "from": "customer gateway",
+        "to": "cloud VPN gateway",
+        "type": "data"
+      },
+      {
+        "id": "connection-3",
+        "from": "cloud VPN gateway",
+        "to": "cloud VPC",
+        "type": "data"
+      },
+      {
+        "id": "connection-4",
+        "from": "cloud VPC",
+        "to": "private subnet",
+        "type": "data"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "Direct Connect or another private circuit",
+    "Static or propagated route behavior",
+    "A cloud firewall appliance",
+    "Customer-side high availability"
+  ],
+  "direction_recommendation": "LR",
+  "complexity_expectation": "overview-only"
+}

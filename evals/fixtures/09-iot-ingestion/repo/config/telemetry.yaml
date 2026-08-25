@@ -1,0 +1,12 @@
+devices:
+  protocol: mqtt
+  topic: factories/+/telemetry
+broker:
+  mode: managed
+routing:
+  destination: telemetry-stream
+consumer:
+  name: telemetry-normalizer
+  writes: time-series-store
+alerts:
+  source: telemetry-stream

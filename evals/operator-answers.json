@@ -1,0 +1,206 @@
+{
+  "schema_version": "1.0",
+  "architecture_brief_approval_phrase": "I approve this Architecture Brief for rendering.",
+  "cases": [
+    {
+      "id": "01-checkout",
+      "answers": [
+        {
+          "decision_id": "payment-timing",
+          "answer": "Authorize payment synchronously through an external payment provider before writing the order; do not create the order when authorization fails."
+        }
+      ]
+    },
+    {
+      "id": "02-event-pipeline",
+      "answers": [
+        {
+          "decision_id": "terminal-failure-path",
+          "answer": "Send terminal delivery or processing failures to one SQS dead-letter queue, with no automatic redrive."
+        }
+      ]
+    },
+    {
+      "id": "03-serverless-media",
+      "answers": [
+        {
+          "decision_id": "upload-authorization",
+          "answer": "Only authenticated customers may upload; protect POST /uploads with a JWT authorizer backed by an external OIDC identity provider."
+        }
+      ]
+    },
+    {
+      "id": "04-k8s-observability",
+      "answers": [
+        {
+          "decision_id": "operator-access",
+          "answer": "Keep Grafana private and expose it through an internal ingress reachable only over the corporate VPN."
+        },
+        {
+          "decision_id": "telemetry-retention",
+          "answer": "Retain Prometheus metrics for 15 days on a persistent volume and retain Tempo traces and Loki logs for 30 days in shared S3-compatible object storage."
+        }
+      ]
+    },
+    {
+      "id": "05-cicd",
+      "answers": [
+        {
+          "decision_id": "deployment-approval",
+          "answer": "Require one human approval after packaging and before the production deploy stage."
+        },
+        {
+          "decision_id": "rollback-policy",
+          "answer": "The deployment controller rolls back to the previous image when /healthz fails continuously for five minutes."
+        },
+        {
+          "decision_id": "runner-boundary",
+          "answer": "Use CI-provider-hosted runners outside the production trust boundary."
+        }
+      ]
+    },
+    {
+      "id": "06-rag",
+      "answers": [
+        {
+          "decision_id": "model-location",
+          "answer": "Use one external managed model API for both embeddings and generation, outside the application trust boundary."
+        },
+        {
+          "decision_id": "ingestion-trigger",
+          "answer": "An operator manually starts indexing after placing a reviewed document set in the imports directory."
+        },
+        {
+          "decision_id": "query-auth",
+          "answer": "Authenticate query API users with JWTs issued by an external OIDC identity provider."
+        }
+      ]
+    },
+    {
+      "id": "07-payments-boundary",
+      "answers": [
+        {
+          "decision_id": "tokenization-boundary",
+          "answer": "The processor's hosted fields tokenize card data in the browser; raw card details never enter our systems."
+        },
+        {
+          "decision_id": "payment-state-owner",
+          "answer": "The payment adapter owns payment state transitions; the order stores only the processor reference and a projected status."
+        },
+        {
+          "decision_id": "webhook-delivery",
+          "answer": "The adapter verifies processor signatures, places accepted webhooks on a durable queue with exponential retries, and deduplicates by processor event ID."
+        }
+      ]
+    },
+    {
+      "id": "08-hybrid-network",
+      "answers": [
+        {
+          "decision_id": "route-control",
+          "answer": "Use BGP only: advertise office prefix 192.168.0.0/16 to the cloud and cloud prefix 10.40.0.0/16 to the office, with no static routes."
+        },
+        {
+          "decision_id": "resilience",
+          "answer": "One office gateway and the one logical VPN are sufficient for this diagram; do not add customer-side failover."
+        },
+        {
+          "decision_id": "dns-resolution",
+          "answer": "Use conditional forwarding between office DNS and a cloud private DNS resolver."
+        },
+        {
+          "decision_id": "firewall-ownership",
+          "answer": "The office firewall controls office egress, and cloud security groups control access inside the VPC; do not add an inline cloud firewall appliance."
+        }
+      ]
+    },
+    {
+      "id": "09-iot-ingestion",
+      "answers": [
+        {
+          "decision_id": "device-identity",
+          "answer": "Authenticate each device with a unique X.509 certificate provisioned by a device registry, and enforce revocation at the broker."
+        },
+        {
+          "decision_id": "delivery-semantics",
+          "answer": "Use MQTT QoS 1 and at-least-once delivery; consumers deduplicate using the device message ID."
+        },
+        {
+          "decision_id": "offline-buffering",
+          "answer": "A factory gateway buffers up to 24 hours of telemetry while disconnected and forwards it after reconnection."
+        },
+        {
+          "decision_id": "retention",
+          "answer": "Retain raw stream data for 7 days and normalized readings for 13 months, with no archive tier."
+        }
+      ]
+    },
+    {
+      "id": "10-monolith-migration",
+      "answers": [
+        {
+          "decision_id": "catalog-write-owner",
+          "answer": "The commerce monolith remains the sole owner of catalog writes in the current-state diagram."
+        },
+        {
+          "decision_id": "database-separation",
+          "answer": "Keep the shared commerce database for the phase shown; a dedicated catalog database is outside this phase."
+        },
+        {
+          "decision_id": "state-synchronization",
+          "answer": "No synchronization mechanism is needed in this phase because write ownership and the shared database do not change."
+        },
+        {
+          "decision_id": "rollback-boundary",
+          "answer": "Rollback sends catalog reads back to the monolith at the gateway; the shared database remains unchanged."
+        }
+      ]
+    },
+    {
+      "id": "11-multi-region-service",
+      "answers": [
+        {
+          "decision_id": "write-topology",
+          "answer": "US is the authoritative write region; the EU application serves reads only."
+        },
+        {
+          "decision_id": "data-replication",
+          "answer": "Use asynchronous logical replication from the US database to the EU database."
+        },
+        {
+          "decision_id": "failover-policy",
+          "answer": "Route 53 checks each regional /healthz endpoint, removes an unhealthy region, and targets a 10-minute RTO and 5-minute RPO."
+        },
+        {
+          "decision_id": "session-affinity",
+          "answer": "No regional session affinity is required; application sessions are stateless and represented by signed client tokens."
+        }
+      ]
+    },
+    {
+      "id": "12-ambiguous-data-platform",
+      "answers": [
+        {
+          "decision_id": "ingestion-mode",
+          "answer": "Stream product database changes with CDC and ingest SaaS records in one nightly batch."
+        },
+        {
+          "decision_id": "freshness-slo",
+          "answer": "Product dashboards need data within 15 minutes, SaaS dashboards by 08:00 daily, and ML experiment datasets once per day."
+        },
+        {
+          "decision_id": "orchestration-owner",
+          "answer": "A single managed workflow orchestrator inside the data-platform boundary owns ingestion and transformation dependencies."
+        },
+        {
+          "decision_id": "sensitive-data-boundary",
+          "answer": "Classify and mask sensitive fields in the ingestion layer before object storage, then enforce central access policies on trusted datasets."
+        },
+        {
+          "decision_id": "ml-serving-scope",
+          "answer": "The platform supports offline ML experiments only; online model serving is out of scope."
+        }
+      ]
+    }
+  ]
+}

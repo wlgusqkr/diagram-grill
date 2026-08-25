@@ -1,0 +1,104 @@
+{
+  "id": "02-event-pipeline",
+  "title": "S3 object event pipeline",
+  "input_kind": "terraform",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "The ingest S3 bucket has EventBridge notifications enabled.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 14,
+          "line_end": 20
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "The EventBridge rule selects S3 Object Created events for the ingest bucket.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 23,
+          "line_end": 34
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "The EventBridge rule targets the processor Lambda and is permitted to invoke it.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 36,
+          "line_end": 39
+        },
+        {
+          "path": "main.tf",
+          "line_start": 91,
+          "line_end": 97
+        }
+      ]
+    },
+    {
+      "id": "fact-4",
+      "fact": "The processor Lambda is configured for the jobs table and its role can put or update table items.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 64,
+          "line_end": 74
+        },
+        {
+          "path": "main.tf",
+          "line_start": 76,
+          "line_end": 89
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "terminal-failure-path",
+      "question": "Where should events go after delivery or processing attempts are exhausted?",
+      "why_it_matters": "No dead-letter target or failure destination is declared, so the answer adds a node and a typed failure connection."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "ingest S3 bucket",
+      "EventBridge object-created rule",
+      "processor Lambda",
+      "jobs DynamoDB table"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "ingest S3 bucket",
+        "to": "EventBridge object-created rule",
+        "type": "event"
+      },
+      {
+        "id": "connection-2",
+        "from": "EventBridge object-created rule",
+        "to": "processor Lambda",
+        "type": "event"
+      },
+      {
+        "id": "connection-3",
+        "from": "processor Lambda",
+        "to": "jobs DynamoDB table",
+        "type": "data"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "Do not invent a dead-letter queue, retry policy, or failure destination.",
+    "Do not add API Gateway, an upload client, or a downstream consumer.",
+    "Do not infer multi-region replication, bucket public access, or DynamoDB backups.",
+    "Do not execute Terraform or inspect a live AWS account."
+  ],
+  "direction_recommendation": "TB",
+  "complexity_expectation": "overview-only"
+}

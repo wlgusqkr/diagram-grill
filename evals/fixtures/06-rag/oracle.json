@@ -1,0 +1,101 @@
+{
+  "id": "06-rag",
+  "title": "RAG query and indexing flows",
+  "input_kind": "Docker Compose and app config evidence",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "The API uses a vector store and a Redis queue.",
+      "evidence": [
+        {
+          "path": "docker-compose.yml",
+          "line_start": 2,
+          "line_end": 6
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "The indexer consumes a read-only imports directory and connects to the same queue and vector store.",
+      "evidence": [
+        {
+          "path": "docker-compose.yml",
+          "line_start": 7,
+          "line_end": 13
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "The generation model endpoint is deliberately unset.",
+      "evidence": [
+        {
+          "path": "config/rag.yaml",
+          "line_start": 7,
+          "line_end": 8
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "model-location",
+      "question": "Which generation and embedding model endpoints should be used, and are they inside or outside the trust boundary?",
+      "why_it_matters": "No model service is configured, so provider and data egress cannot be inferred."
+    },
+    {
+      "id": "ingestion-trigger",
+      "question": "What triggers indexing from the imports directory?",
+      "why_it_matters": "The evidence does not distinguish scheduled, manual, or event-driven ingestion."
+    },
+    {
+      "id": "query-auth",
+      "question": "What authenticates users of the query API?",
+      "why_it_matters": "An authentication boundary is not present in the supplied configuration."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "query API",
+      "indexer",
+      "Redis queue",
+      "vector store",
+      "read-only document imports",
+      "unknown model endpoint"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "query API",
+        "to": "vector store",
+        "type": "data"
+      },
+      {
+        "id": "connection-2",
+        "from": "query API",
+        "to": "Redis queue",
+        "type": "async"
+      },
+      {
+        "id": "connection-3",
+        "from": "indexer",
+        "to": "vector store",
+        "type": "data"
+      },
+      {
+        "id": "connection-4",
+        "from": "read-only document imports",
+        "to": "indexer",
+        "type": "data"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "A specific hosted LLM provider",
+    "Locally hosted embedding models",
+    "High-availability Redis or vector-store clusters",
+    "Automatic document change detection"
+  ],
+  "direction_recommendation": "LR",
+  "complexity_expectation": "overview-only"
+}

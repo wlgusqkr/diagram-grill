@@ -1,0 +1,126 @@
+{
+  "id": "01-checkout",
+  "title": "Checkout to fulfillment",
+  "input_kind": "natural-language",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "The web storefront calls the Checkout API over HTTPS.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 3,
+          "line_end": 3
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "The Checkout API synchronously requests the final total from the Pricing Service.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 4,
+          "line_end": 4
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "Orders PostgreSQL is the authoritative order store and receives pending orders from the Checkout API.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 5,
+          "line_end": 5
+        }
+      ]
+    },
+    {
+      "id": "fact-4",
+      "fact": "The Checkout API publishes OrderPlaced only after the order write succeeds.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 6,
+          "line_end": 6
+        }
+      ]
+    },
+    {
+      "id": "fact-5",
+      "fact": "The Fulfillment Worker consumes OrderPlaced and calls the external Shipping Provider over HTTPS.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 7,
+          "line_end": 7
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "payment-timing",
+      "question": "Should payment authorization be a synchronous Checkout API dependency or an asynchronous step after OrderPlaced?",
+      "why_it_matters": "The answer adds a payment node on a different path and changes both response semantics and connection type."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "web storefront",
+      "Checkout API",
+      "Pricing Service",
+      "Orders PostgreSQL",
+      "Orders queue",
+      "Fulfillment Worker",
+      "external Shipping Provider"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "web storefront",
+        "to": "Checkout API",
+        "type": "sync"
+      },
+      {
+        "id": "connection-2",
+        "from": "Checkout API",
+        "to": "Pricing Service",
+        "type": "sync"
+      },
+      {
+        "id": "connection-3",
+        "from": "Checkout API",
+        "to": "Orders PostgreSQL",
+        "type": "data"
+      },
+      {
+        "id": "connection-4",
+        "from": "Checkout API",
+        "to": "Orders queue",
+        "type": "event"
+      },
+      {
+        "id": "connection-5",
+        "from": "Orders queue",
+        "to": "Fulfillment Worker",
+        "type": "event"
+      },
+      {
+        "id": "connection-6",
+        "from": "Fulfillment Worker",
+        "to": "external Shipping Provider",
+        "type": "sync"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "Do not choose synchronous or asynchronous payment before the team decides.",
+    "Do not assign a cloud provider to the managed queue.",
+    "Do not invent retries, a dead-letter queue, replicas, regions, or backup components.",
+    "Do not place the external Shipping Provider inside the owned checkout boundary."
+  ],
+  "direction_recommendation": "LR",
+  "complexity_expectation": "overview-only"
+}

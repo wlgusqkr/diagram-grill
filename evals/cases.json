@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0",
+  "cases": [
+    {
+      "id": "01-checkout",
+      "title": "Checkout to fulfillment",
+      "fixture_path": "fixtures/01-checkout",
+      "prompt_path": "fixtures/01-checkout/prompt.md",
+      "repo_path": "fixtures/01-checkout/repo",
+      "oracle_path": "fixtures/01-checkout/oracle.json"
+    },
+    {
+      "id": "02-event-pipeline",
+      "title": "S3 object event pipeline",
+      "fixture_path": "fixtures/02-event-pipeline",
+      "prompt_path": "fixtures/02-event-pipeline/prompt.md",
+      "repo_path": "fixtures/02-event-pipeline/repo",
+      "oracle_path": "fixtures/02-event-pipeline/oracle.json"
+    },
+    {
+      "id": "03-serverless-media",
+      "title": "Serverless media processing and delivery",
+      "fixture_path": "fixtures/03-serverless-media",
+      "prompt_path": "fixtures/03-serverless-media/prompt.md",
+      "repo_path": "fixtures/03-serverless-media/repo",
+      "oracle_path": "fixtures/03-serverless-media/oracle.json"
+    },
+    {
+      "id": "04-k8s-observability",
+      "title": "Kubernetes telemetry pipeline",
+      "fixture_path": "fixtures/04-k8s-observability",
+      "prompt_path": "fixtures/04-k8s-observability/prompt.md",
+      "repo_path": "fixtures/04-k8s-observability/repo",
+      "oracle_path": "fixtures/04-k8s-observability/oracle.json"
+    },
+    {
+      "id": "05-cicd",
+      "title": "CI/CD delivery path",
+      "fixture_path": "fixtures/05-cicd",
+      "prompt_path": "fixtures/05-cicd/prompt.md",
+      "repo_path": "fixtures/05-cicd/repo",
+      "oracle_path": "fixtures/05-cicd/oracle.json"
+    },
+    {
+      "id": "06-rag",
+      "title": "RAG query and indexing flows",
+      "fixture_path": "fixtures/06-rag",
+      "prompt_path": "fixtures/06-rag/prompt.md",
+      "repo_path": "fixtures/06-rag/repo",
+      "oracle_path": "fixtures/06-rag/oracle.json"
+    },
+    {
+      "id": "07-payments-boundary",
+      "title": "External payment trust boundary",
+      "fixture_path": "fixtures/07-payments-boundary",
+      "prompt_path": "fixtures/07-payments-boundary/prompt.md",
+      "repo_path": "fixtures/07-payments-boundary/repo",
+      "oracle_path": "fixtures/07-payments-boundary/oracle.json"
+    },
+    {
+      "id": "08-hybrid-network",
+      "title": "Office-to-cloud hybrid network",
+      "fixture_path": "fixtures/08-hybrid-network",
+      "prompt_path": "fixtures/08-hybrid-network/prompt.md",
+      "repo_path": "fixtures/08-hybrid-network/repo",
+      "oracle_path": "fixtures/08-hybrid-network/oracle.json"
+    },
+    {
+      "id": "09-iot-ingestion",
+      "title": "IoT telemetry ingestion",
+      "fixture_path": "fixtures/09-iot-ingestion",
+      "prompt_path": "fixtures/09-iot-ingestion/prompt.md",
+      "repo_path": "fixtures/09-iot-ingestion/repo",
+      "oracle_path": "fixtures/09-iot-ingestion/oracle.json"
+    },
+    {
+      "id": "10-monolith-migration",
+      "title": "Monolith catalog extraction",
+      "fixture_path": "fixtures/10-monolith-migration",
+      "prompt_path": "fixtures/10-monolith-migration/prompt.md",
+      "repo_path": "fixtures/10-monolith-migration/repo",
+      "oracle_path": "fixtures/10-monolith-migration/oracle.json"
+    },
+    {
+      "id": "11-multi-region-service",
+      "title": "Latency-routed multi-region service",
+      "fixture_path": "fixtures/11-multi-region-service",
+      "prompt_path": "fixtures/11-multi-region-service/prompt.md",
+      "repo_path": "fixtures/11-multi-region-service/repo",
+      "oracle_path": "fixtures/11-multi-region-service/oracle.json"
+    },
+    {
+      "id": "12-ambiguous-data-platform",
+      "title": "Ambiguous shared data platform",
+      "fixture_path": "fixtures/12-ambiguous-data-platform",
+      "prompt_path": "fixtures/12-ambiguous-data-platform/prompt.md",
+      "repo_path": "fixtures/12-ambiguous-data-platform/repo",
+      "oracle_path": "fixtures/12-ambiguous-data-platform/oracle.json"
+    }
+  ]
+}

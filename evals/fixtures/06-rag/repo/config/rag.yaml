@@ -1,0 +1,8 @@
+query:
+  top_k: 8
+  vector_collection: documents
+indexing:
+  input_path: /imports
+  chunk_size: 800
+generation:
+  model_endpoint: unset

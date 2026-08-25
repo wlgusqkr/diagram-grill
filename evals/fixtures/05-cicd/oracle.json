@@ -1,0 +1,99 @@
+{
+  "id": "05-cicd",
+  "title": "CI/CD delivery path",
+  "input_kind": "mixed app/config evidence",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "Pull requests and pushes to main trigger the delivery pipeline.",
+      "evidence": [
+        {
+          "path": "delivery/pipeline.yaml",
+          "line_start": 1,
+          "line_end": 3
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "Testing precedes packaging, which publishes the orders-api image to a registry.",
+      "evidence": [
+        {
+          "path": "delivery/pipeline.yaml",
+          "line_start": 4,
+          "line_end": 9
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "The packaged image is deployed to a production runtime.",
+      "evidence": [
+        {
+          "path": "delivery/pipeline.yaml",
+          "line_start": 10,
+          "line_end": 12
+        },
+        {
+          "path": "app/service.yaml",
+          "line_start": 1,
+          "line_end": 4
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "deployment-approval",
+      "question": "Is production deployment gated by a human or an external policy check?",
+      "why_it_matters": "The repository lists a deploy stage but no approval boundary."
+    },
+    {
+      "id": "rollback-policy",
+      "question": "What detects a bad release and initiates rollback?",
+      "why_it_matters": "The diagram should not invent rollout or rollback components."
+    },
+    {
+      "id": "runner-boundary",
+      "question": "Are build runners hosted by the CI provider or inside the production trust boundary?",
+      "why_it_matters": "Runner placement changes credential and network boundaries."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "source repository",
+      "CI runner",
+      "container registry",
+      "production runtime",
+      "orders API"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "source repository",
+        "to": "CI runner",
+        "type": "event"
+      },
+      {
+        "id": "connection-2",
+        "from": "CI runner",
+        "to": "container registry",
+        "type": "data"
+      },
+      {
+        "id": "connection-3",
+        "from": "CI runner",
+        "to": "production runtime",
+        "type": "sync"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "A specific CI vendor",
+    "A Kubernetes deployment target",
+    "Automatic canary rollout or rollback",
+    "A particular secrets manager"
+  ],
+  "direction_recommendation": "LR",
+  "complexity_expectation": "overview-only"
+}

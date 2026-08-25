@@ -1,0 +1,209 @@
+{
+  "schema_version": "1.0",
+  "verified_on": "2026-08-25",
+  "content_policy": {
+    "storage": "metadata-only",
+    "retrieval": "Fetch the exact commit into a disposable directory outside this repository. Do not commit or vendor upstream content.",
+    "integrity": "Verify the fetched commit, then compare every allowlisted path's Git blob OID before computing a SHA-256 evidence manifest. See OSS_CASES.md for commands."
+  },
+  "cases": [
+    {
+      "id": "oss-01-online-boutique",
+      "category": "kubernetes-microservices",
+      "title": "Online Boutique Kubernetes microservices",
+      "repository_url": "https://github.com/GoogleCloudPlatform/microservices-demo",
+      "commit_sha": "72ba613a05f7fcee51cf1d0badff401b6ae7074d",
+      "commit_url": "https://github.com/GoogleCloudPlatform/microservices-demo/commit/72ba613a05f7fcee51cf1d0badff401b6ae7074d",
+      "upstream_license": {
+        "spdx_id": "Apache-2.0",
+        "path": "LICENSE",
+        "git_blob_oid": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "url": "https://github.com/GoogleCloudPlatform/microservices-demo/blob/72ba613a05f7fcee51cf1d0badff401b6ae7074d/LICENSE"
+      },
+      "evidence_allowlist": [
+        {
+          "path": "README.md",
+          "git_blob_oid": "7ffd5f3ac7508734425d561cdadda8a088c12036"
+        },
+        {
+          "path": "kubernetes-manifests/adservice.yaml",
+          "git_blob_oid": "25ff1b7f578f7e25f8ad324d0f020d664932b5b8"
+        },
+        {
+          "path": "kubernetes-manifests/cartservice.yaml",
+          "git_blob_oid": "5470d36453f05eedef0d166cd08ce5b13fa253f2"
+        },
+        {
+          "path": "kubernetes-manifests/checkoutservice.yaml",
+          "git_blob_oid": "c7dc5a0d9d8ca9bce77b321e41758dd53d8ca66d"
+        },
+        {
+          "path": "kubernetes-manifests/currencyservice.yaml",
+          "git_blob_oid": "58fc03284a94413ab91f05ecf4d3c5504ee0477e"
+        },
+        {
+          "path": "kubernetes-manifests/emailservice.yaml",
+          "git_blob_oid": "bea781adb7d554b3aba2541a4590841fcc3cf212"
+        },
+        {
+          "path": "kubernetes-manifests/frontend.yaml",
+          "git_blob_oid": "5aec4f3d466455f4e7fb0d223c6cbce38083112a"
+        },
+        {
+          "path": "kubernetes-manifests/kustomization.yaml",
+          "git_blob_oid": "bf69f4ea2374afd86a00c3db666a9be79ce175ad"
+        },
+        {
+          "path": "kubernetes-manifests/loadgenerator.yaml",
+          "git_blob_oid": "58db3e17061bbd89ce2ba60a36e2ddf4b6f3ab55"
+        },
+        {
+          "path": "kubernetes-manifests/paymentservice.yaml",
+          "git_blob_oid": "a0a1526f073918d8a3785ba00dcb2dd57a326f3c"
+        },
+        {
+          "path": "kubernetes-manifests/productcatalogservice.yaml",
+          "git_blob_oid": "6774650622ef4914a74a56e0e5461c2d1386a761"
+        },
+        {
+          "path": "kubernetes-manifests/recommendationservice.yaml",
+          "git_blob_oid": "2d2c6eed9d3144013c4f75e434796a1201bf70ad"
+        },
+        {
+          "path": "kubernetes-manifests/shippingservice.yaml",
+          "git_blob_oid": "41cd5260d79413b26736d0610109a858d8528f14"
+        }
+      ],
+      "prompt": "Inspect only the allowlisted evidence files at the pinned commit. Create an evidence-linked current-state architecture diagram for the default Kubernetes deployment, showing the user entry point, workloads, service-to-service calls, and stateful dependencies that the evidence supports. Ask concise questions for architecture choices the files cannot resolve, require approval before rendering, and do not infer a cloud provider, service mesh, managed replacement, security control, or production scaling policy.",
+      "why_selected": [
+        "It is an established Google Cloud sample whose pinned README describes 11 cooperating microservices.",
+        "The allowlist contains component-level Kubernetes manifests with enough configuration to test evidence-backed runtime and dependency discovery.",
+        "Its polyglot services and stateful cart dependency exercise icon resolution and diagram readability without requiring proprietary source material."
+      ]
+    },
+    {
+      "id": "oss-02-terraform-foundation",
+      "category": "terraform-cloud-infrastructure",
+      "title": "Google Cloud Terraform hub-and-spoke foundation",
+      "repository_url": "https://github.com/terraform-google-modules/terraform-example-foundation",
+      "commit_sha": "0a96d838801082e4ab60f9047fa445b1afebc47b",
+      "commit_url": "https://github.com/terraform-google-modules/terraform-example-foundation/commit/0a96d838801082e4ab60f9047fa445b1afebc47b",
+      "upstream_license": {
+        "spdx_id": "Apache-2.0",
+        "path": "LICENSE",
+        "git_blob_oid": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+        "url": "https://github.com/terraform-google-modules/terraform-example-foundation/blob/0a96d838801082e4ab60f9047fa445b1afebc47b/LICENSE"
+      },
+      "evidence_allowlist": [
+        {
+          "path": "3-networks-hub-and-spoke/README.md",
+          "git_blob_oid": "2e17dc63f0daeb350644d53cbad44d7cc860fd35"
+        },
+        {
+          "path": "3-networks-hub-and-spoke/envs/development/main.tf",
+          "git_blob_oid": "081b76d867a962f78ac83bbf2c9059b162fd39ae"
+        },
+        {
+          "path": "3-networks-hub-and-spoke/envs/nonproduction/main.tf",
+          "git_blob_oid": "2a72875388b28447ac78040f1fb3f6c8cc01235f"
+        },
+        {
+          "path": "3-networks-hub-and-spoke/envs/production/main.tf",
+          "git_blob_oid": "bfbbf627f3ba5650fd1e4801bcd095a18c5ce2ae"
+        },
+        {
+          "path": "3-networks-hub-and-spoke/envs/shared/net-hubs-transitivity.tf",
+          "git_blob_oid": "33ed4975282a30796c818d2178202fece5971495"
+        },
+        {
+          "path": "3-networks-hub-and-spoke/envs/shared/net-hubs.tf",
+          "git_blob_oid": "f906aa75b1c91dffe5afb4fd5a9f0784da77179d"
+        },
+        {
+          "path": "3-networks-hub-and-spoke/modules/base_env/main.tf",
+          "git_blob_oid": "67ed708db5727f3a63d568c3d580a6f0ca391fab"
+        },
+        {
+          "path": "README.md",
+          "git_blob_oid": "361b5a38871fb752095e0a0da0a7bb62f3d5b3ff"
+        }
+      ],
+      "prompt": "Inspect only the allowlisted evidence files at the pinned commit. Create an evidence-linked architecture diagram of the infrastructure declared by the Terraform hub-and-spoke networking stage, including the shared hub, development, nonproduction, and production spokes, regional structure, and conditional transitivity only where the code supports it. Ask concise questions when enabled options or desired abstraction level are unresolved, require approval before rendering, and do not portray optional interconnect, NAT, firewall, DNS, or transitivity features as enabled unless the evidence establishes that state.",
+      "why_selected": [
+        "It is the Terraform Google Modules example for a staged Google Cloud enterprise foundation.",
+        "The selected slice combines documentation, environment roots, reusable modules, and conditional infrastructure behavior.",
+        "The hub-and-spoke topology tests cloud-resource grouping and the ability to keep configurable features distinct from observed current state."
+      ]
+    },
+    {
+      "id": "oss-03-voting-app",
+      "category": "mixed-compose-swarm-kubernetes",
+      "title": "Docker Example Voting App deployment variants",
+      "repository_url": "https://github.com/dockersamples/example-voting-app",
+      "commit_sha": "63e9150ca17af4ed05880d4245e486481f73fcb4",
+      "commit_url": "https://github.com/dockersamples/example-voting-app/commit/63e9150ca17af4ed05880d4245e486481f73fcb4",
+      "upstream_license": {
+        "spdx_id": "Apache-2.0",
+        "path": "LICENSE",
+        "git_blob_oid": "75191a4dc711fe86bcdcae49cdfbde424190659b",
+        "url": "https://github.com/dockersamples/example-voting-app/blob/63e9150ca17af4ed05880d4245e486481f73fcb4/LICENSE"
+      },
+      "evidence_allowlist": [
+        {
+          "path": "README.md",
+          "git_blob_oid": "8516424ba108a694d3c5ef158f0ce5b539056358"
+        },
+        {
+          "path": "docker-compose.yml",
+          "git_blob_oid": "5915ffd741544bdd4b7fbb422144d142cae78887"
+        },
+        {
+          "path": "docker-stack.yml",
+          "git_blob_oid": "356b944cafae91804b660bf737cb3cbe1b0aef3d"
+        },
+        {
+          "path": "k8s-specifications/db-deployment.yaml",
+          "git_blob_oid": "bc94ca736894e8a41f80ff8baa93a39686e05226"
+        },
+        {
+          "path": "k8s-specifications/db-service.yaml",
+          "git_blob_oid": "104f1e8268a7f2b421be30218df03dafe19b3499"
+        },
+        {
+          "path": "k8s-specifications/redis-deployment.yaml",
+          "git_blob_oid": "24aa52135fd805412bfdf04182bf1fe7b14623b5"
+        },
+        {
+          "path": "k8s-specifications/redis-service.yaml",
+          "git_blob_oid": "809d31d87570b1c43de2e5f1309a33bc90770127"
+        },
+        {
+          "path": "k8s-specifications/result-deployment.yaml",
+          "git_blob_oid": "b85488a667849d2641bb61dd7b13e339fd9d4ccd"
+        },
+        {
+          "path": "k8s-specifications/result-service.yaml",
+          "git_blob_oid": "0fed5e0cc5d86ceb2e69751563185c8dd33c298a"
+        },
+        {
+          "path": "k8s-specifications/vote-deployment.yaml",
+          "git_blob_oid": "165a9478f88fc831a85006129aee45a6c7dd3259"
+        },
+        {
+          "path": "k8s-specifications/vote-service.yaml",
+          "git_blob_oid": "d7a05b551395f19a6ab6ab944101c68eb6ea42c9"
+        },
+        {
+          "path": "k8s-specifications/worker-deployment.yaml",
+          "git_blob_oid": "9e35450aec197e9515424efaf866005763bfa223"
+        }
+      ],
+      "prompt": "Inspect only the allowlisted evidence files at the pinned commit. Create an evidence-linked deployment architecture for the Example Voting App. First determine whether the requested view should describe Docker Compose alone or compare the Compose, Swarm stack, and Kubernetes variants; ask if that scope is not supplied. Show only supported user entry points, vote and result applications, Redis, worker, PostgreSQL, and their data flow. Require approval before rendering, and do not infer a cloud provider, ingress controller, TLS termination, autoscaling, or persistence guarantees.",
+      "why_selected": [
+        "It is a Docker-maintained sample with a compact, recognizable application topology.",
+        "The same application is represented in Docker Compose, Docker Swarm stack, and Kubernetes files, enabling a controlled deployment-model comparison.",
+        "Its asynchronous Redis-to-worker-to-PostgreSQL flow tests directional edges and stateful-service representation."
+      ]
+    }
+  ]
+}

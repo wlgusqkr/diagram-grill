@@ -1,0 +1,12 @@
+triggers:
+  pull_request: [main]
+  push: [main]
+stages:
+  - id: test
+    action: run-unit-tests
+  - id: package
+    after: test
+    publishes: registry.example.invalid/orders-api
+  - id: deploy
+    after: package
+    target: production-runtime

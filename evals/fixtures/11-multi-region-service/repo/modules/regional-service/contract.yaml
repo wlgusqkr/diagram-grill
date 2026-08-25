@@ -1,0 +1,11 @@
+inputs:
+  - region
+components:
+  - public-load-balancer
+  - application-service
+  - region-local-postgres
+connections:
+  - public-load-balancer -> application-service
+  - application-service -> region-local-postgres
+outputs:
+  - endpoint

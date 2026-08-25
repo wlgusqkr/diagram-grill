@@ -1,0 +1,120 @@
+{
+  "id": "11-multi-region-service",
+  "title": "Latency-routed multi-region service",
+  "input_kind": "Terraform and module-contract evidence",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "The same regional-service module is instantiated in us-east-1 and eu-west-1.",
+      "evidence": [
+        {
+          "path": "infra/regions.tf",
+          "line_start": 1,
+          "line_end": 9
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "Latency-based DNS records point the shared service name at each regional endpoint.",
+      "evidence": [
+        {
+          "path": "infra/regions.tf",
+          "line_start": 11,
+          "line_end": 25
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "Each regional contract contains a load balancer, application service, and region-local PostgreSQL database.",
+      "evidence": [
+        {
+          "path": "modules/regional-service/contract.yaml",
+          "line_start": 3,
+          "line_end": 9
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "write-topology",
+      "question": "Can both regions accept writes, or is one region authoritative?",
+      "why_it_matters": "Regional deployment plus latency DNS does not establish active-active data writes."
+    },
+    {
+      "id": "data-replication",
+      "question": "How is data replicated between the region-local databases?",
+      "why_it_matters": "No cross-region database connection is defined."
+    },
+    {
+      "id": "failover-policy",
+      "question": "What health signal removes a region from service, and what are the RTO and RPO targets?",
+      "why_it_matters": "Latency routing alone does not define failover behavior."
+    },
+    {
+      "id": "session-affinity",
+      "question": "Does the application require regional session affinity?",
+      "why_it_matters": "User routing behavior may depend on state placement."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "latency-based DNS",
+      "US regional load balancer",
+      "US application service",
+      "US regional database",
+      "EU regional load balancer",
+      "EU application service",
+      "EU regional database"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "latency-based DNS",
+        "to": "US regional load balancer",
+        "type": "sync"
+      },
+      {
+        "id": "connection-2",
+        "from": "latency-based DNS",
+        "to": "EU regional load balancer",
+        "type": "sync"
+      },
+      {
+        "id": "connection-3",
+        "from": "US regional load balancer",
+        "to": "US application service",
+        "type": "sync"
+      },
+      {
+        "id": "connection-4",
+        "from": "US application service",
+        "to": "US regional database",
+        "type": "data"
+      },
+      {
+        "id": "connection-5",
+        "from": "EU regional load balancer",
+        "to": "EU application service",
+        "type": "sync"
+      },
+      {
+        "id": "connection-6",
+        "from": "EU application service",
+        "to": "EU regional database",
+        "type": "data"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "Active-active writes",
+    "Cross-region database replication",
+    "Automatic DNS failover health checks",
+    "Zero RPO or a specific RTO",
+    "Global session storage"
+  ],
+  "direction_recommendation": "LR",
+  "complexity_expectation": "overview-and-detail"
+}

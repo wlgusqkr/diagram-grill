@@ -1,0 +1,110 @@
+{
+  "id": "10-monolith-migration",
+  "title": "Monolith catalog extraction",
+  "input_kind": "Docker Compose and routing evidence",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "The gateway routes catalog traffic to the catalog service and fallback traffic to the commerce monolith.",
+      "evidence": [
+        {
+          "path": "config/routes.yaml",
+          "line_start": 1,
+          "line_end": 5
+        },
+        {
+          "path": "README.md",
+          "line_start": 3,
+          "line_end": 3
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "The monolith and catalog service both connect to the existing commerce database.",
+      "evidence": [
+        {
+          "path": "deploy/compose.yaml",
+          "line_start": 4,
+          "line_end": 13
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "Catalog write cutover and schema ownership are not approved.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 5,
+          "line_end": 5
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "catalog-write-owner",
+      "question": "Which application owns catalog writes in the current diagram?",
+      "why_it_matters": "Routing only establishes catalog reads, not write ownership."
+    },
+    {
+      "id": "database-separation",
+      "question": "Will the catalog service keep sharing the commerce database or receive its own store?",
+      "why_it_matters": "The target data boundary is unresolved."
+    },
+    {
+      "id": "state-synchronization",
+      "question": "If data ownership changes, how will old and new representations synchronize during cutover?",
+      "why_it_matters": "No event bus, CDC, or dual-write mechanism is evidenced."
+    },
+    {
+      "id": "rollback-boundary",
+      "question": "What is the rollback point if the extracted path fails?",
+      "why_it_matters": "The current configuration gives no migration rollback behavior."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "gateway",
+      "commerce monolith",
+      "catalog service",
+      "shared commerce database"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "gateway",
+        "to": "catalog service",
+        "type": "sync"
+      },
+      {
+        "id": "connection-2",
+        "from": "gateway",
+        "to": "commerce monolith",
+        "type": "sync"
+      },
+      {
+        "id": "connection-3",
+        "from": "catalog service",
+        "to": "shared commerce database",
+        "type": "data"
+      },
+      {
+        "id": "connection-4",
+        "from": "commerce monolith",
+        "to": "shared commerce database",
+        "type": "data"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "A dedicated catalog database",
+    "An event bus or CDC pipeline",
+    "Catalog write ownership",
+    "A completed strangler migration",
+    "Automatic rollback"
+  ],
+  "direction_recommendation": "LR",
+  "complexity_expectation": "overview-only"
+}

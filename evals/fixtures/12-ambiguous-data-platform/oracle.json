@@ -1,0 +1,133 @@
+{
+  "id": "12-ambiguous-data-platform",
+  "title": "Ambiguous shared data platform",
+  "input_kind": "natural-language only",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "Product database changes and SaaS records share an ingestion layer.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 3,
+          "line_end": 3
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "Ingested data lands in durable object storage before transformation.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 3,
+          "line_end": 3
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "Trusted datasets serve dashboards and machine-learning experiments.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 3,
+          "line_end": 3
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "ingestion-mode",
+      "question": "Which sources require streaming ingestion and which can arrive in batches?",
+      "why_it_matters": "Batch and streaming paths require materially different components."
+    },
+    {
+      "id": "freshness-slo",
+      "question": "What freshness target does each dashboard and ML consumer require?",
+      "why_it_matters": "Latency requirements determine serving and transformation topology."
+    },
+    {
+      "id": "orchestration-owner",
+      "question": "Where are ingestion and transformation schedules or dependencies orchestrated?",
+      "why_it_matters": "No orchestrator is present in the brief."
+    },
+    {
+      "id": "sensitive-data-boundary",
+      "question": "Where are sensitive fields classified, masked, and access-controlled?",
+      "why_it_matters": "Governance boundaries should be explicit rather than decorative."
+    },
+    {
+      "id": "ml-serving-scope",
+      "question": "Does the platform stop at offline experiments, or must it support online model serving?",
+      "why_it_matters": "Online serving would add a separate runtime path not evidenced here."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "product database",
+      "SaaS business tools",
+      "shared ingestion layer",
+      "durable object storage",
+      "transformation jobs",
+      "trusted datasets",
+      "business dashboards",
+      "ML experiments"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "product database",
+        "to": "shared ingestion layer",
+        "type": "data"
+      },
+      {
+        "id": "connection-2",
+        "from": "SaaS business tools",
+        "to": "shared ingestion layer",
+        "type": "data"
+      },
+      {
+        "id": "connection-3",
+        "from": "shared ingestion layer",
+        "to": "durable object storage",
+        "type": "data"
+      },
+      {
+        "id": "connection-4",
+        "from": "durable object storage",
+        "to": "transformation jobs",
+        "type": "data"
+      },
+      {
+        "id": "connection-5",
+        "from": "transformation jobs",
+        "to": "trusted datasets",
+        "type": "data"
+      },
+      {
+        "id": "connection-6",
+        "from": "trusted datasets",
+        "to": "business dashboards",
+        "type": "data"
+      },
+      {
+        "id": "connection-7",
+        "from": "trusted datasets",
+        "to": "ML experiments",
+        "type": "data"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "A specific cloud or analytics vendor",
+    "Streaming ingestion for every source",
+    "A separate data warehouse",
+    "An online model-serving platform",
+    "A specific catalog or orchestration product",
+    "Multi-region replication"
+  ],
+  "direction_recommendation": "LR",
+  "complexity_expectation": "overview-only"
+}

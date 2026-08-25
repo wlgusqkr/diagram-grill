@@ -1,0 +1,118 @@
+{
+  "id": "09-iot-ingestion",
+  "title": "IoT telemetry ingestion",
+  "input_kind": "mixed natural-language and config evidence",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "Devices publish MQTT telemetry to a managed broker topic.",
+      "evidence": [
+        {
+          "path": "config/telemetry.yaml",
+          "line_start": 1,
+          "line_end": 5
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "Brokered telemetry is routed to a telemetry stream.",
+      "evidence": [
+        {
+          "path": "config/telemetry.yaml",
+          "line_start": 6,
+          "line_end": 7
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "A normalizer writes readings to a time-series store while an alert consumer reads the stream independently.",
+      "evidence": [
+        {
+          "path": "config/telemetry.yaml",
+          "line_start": 8,
+          "line_end": 12
+        },
+        {
+          "path": "README.md",
+          "line_start": 3,
+          "line_end": 3
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "device-identity",
+      "question": "How are devices provisioned, authenticated, and revoked?",
+      "why_it_matters": "The device trust boundary cannot be inferred from the MQTT topic."
+    },
+    {
+      "id": "delivery-semantics",
+      "question": "What delivery guarantee and duplicate-handling behavior are required?",
+      "why_it_matters": "Queueing, acknowledgements, and idempotency depend on this decision."
+    },
+    {
+      "id": "offline-buffering",
+      "question": "Must devices or gateways buffer readings while disconnected?",
+      "why_it_matters": "No edge gateway or offline path should be invented."
+    },
+    {
+      "id": "retention",
+      "question": "How long are raw and normalized readings retained?",
+      "why_it_matters": "Storage tiers and archival paths depend on retention."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "factory devices",
+      "managed MQTT broker",
+      "telemetry stream",
+      "telemetry normalizer",
+      "time-series store",
+      "alert consumer"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "factory devices",
+        "to": "managed MQTT broker",
+        "type": "event"
+      },
+      {
+        "id": "connection-2",
+        "from": "managed MQTT broker",
+        "to": "telemetry stream",
+        "type": "event"
+      },
+      {
+        "id": "connection-3",
+        "from": "telemetry stream",
+        "to": "telemetry normalizer",
+        "type": "event"
+      },
+      {
+        "id": "connection-4",
+        "from": "telemetry normalizer",
+        "to": "time-series store",
+        "type": "data"
+      },
+      {
+        "id": "connection-5",
+        "from": "telemetry stream",
+        "to": "alert consumer",
+        "type": "event"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "A specific cloud IoT provider",
+    "Exactly-once delivery",
+    "An edge gateway at every factory",
+    "A cold-storage archive",
+    "Multi-region ingestion"
+  ],
+  "direction_recommendation": "TB",
+  "complexity_expectation": "overview-only"
+}

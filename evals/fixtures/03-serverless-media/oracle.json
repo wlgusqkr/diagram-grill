@@ -1,0 +1,224 @@
+{
+  "id": "03-serverless-media",
+  "title": "Serverless media processing and delivery",
+  "input_kind": "terraform",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "POST /uploads is routed by the HTTP API to the upload Lambda.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 91,
+          "line_end": 107
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "The upload Lambda is configured with the raw bucket and assets table.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 68,
+          "line_end": 77
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "Raw object creation publishes to the media-created SNS topic, which filters image and video work into separate SQS queues.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 16,
+          "line_end": 20
+        },
+        {
+          "path": "main.tf",
+          "line_start": 52,
+          "line_end": 66
+        }
+      ]
+    },
+    {
+      "id": "fact-4",
+      "fact": "Image and video queues each redrive to a distinct dead-letter queue after five receives.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 16,
+          "line_end": 20
+        },
+        {
+          "path": "main.tf",
+          "line_start": 38,
+          "line_end": 50
+        }
+      ]
+    },
+    {
+      "id": "fact-5",
+      "fact": "Each processing queue invokes its matching Lambda through an event source mapping.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 16,
+          "line_end": 20
+        },
+        {
+          "path": "main.tf",
+          "line_start": 109,
+          "line_end": 114
+        }
+      ]
+    },
+    {
+      "id": "fact-6",
+      "fact": "Both processor Lambdas are configured with the processed bucket and assets table.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 79,
+          "line_end": 89
+        }
+      ]
+    },
+    {
+      "id": "fact-7",
+      "fact": "CloudFront uses the processed media bucket as its origin and serves GET and HEAD over HTTPS.",
+      "evidence": [
+        {
+          "path": "main.tf",
+          "line_start": 116,
+          "line_end": 129
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "upload-authorization",
+      "question": "Which caller and authorization boundary should protect POST /uploads?",
+      "why_it_matters": "The Terraform route has no authorizer, while choosing anonymous, Cognito, or an external identity provider changes the external actor, trust boundary, and identity nodes."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "media HTTP API",
+      "upload Lambda",
+      "raw media S3 bucket",
+      "assets DynamoDB table",
+      "media-created SNS topic",
+      "image jobs SQS queue",
+      "video jobs SQS queue",
+      "image jobs dead-letter queue",
+      "video jobs dead-letter queue",
+      "image processor Lambda",
+      "video processor Lambda",
+      "processed media S3 bucket",
+      "CloudFront distribution"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "media HTTP API",
+        "to": "upload Lambda",
+        "type": "sync"
+      },
+      {
+        "id": "connection-2",
+        "from": "upload Lambda",
+        "to": "raw media S3 bucket",
+        "type": "data"
+      },
+      {
+        "id": "connection-3",
+        "from": "upload Lambda",
+        "to": "assets DynamoDB table",
+        "type": "data"
+      },
+      {
+        "id": "connection-4",
+        "from": "raw media S3 bucket",
+        "to": "media-created SNS topic",
+        "type": "event"
+      },
+      {
+        "id": "connection-5",
+        "from": "media-created SNS topic",
+        "to": "image jobs SQS queue",
+        "type": "event"
+      },
+      {
+        "id": "connection-6",
+        "from": "media-created SNS topic",
+        "to": "video jobs SQS queue",
+        "type": "event"
+      },
+      {
+        "id": "connection-7",
+        "from": "image jobs SQS queue",
+        "to": "image processor Lambda",
+        "type": "event"
+      },
+      {
+        "id": "connection-8",
+        "from": "video jobs SQS queue",
+        "to": "video processor Lambda",
+        "type": "event"
+      },
+      {
+        "id": "connection-9",
+        "from": "image jobs SQS queue",
+        "to": "image jobs dead-letter queue",
+        "type": "async"
+      },
+      {
+        "id": "connection-10",
+        "from": "video jobs SQS queue",
+        "to": "video jobs dead-letter queue",
+        "type": "async"
+      },
+      {
+        "id": "connection-11",
+        "from": "image processor Lambda",
+        "to": "processed media S3 bucket",
+        "type": "data"
+      },
+      {
+        "id": "connection-12",
+        "from": "video processor Lambda",
+        "to": "processed media S3 bucket",
+        "type": "data"
+      },
+      {
+        "id": "connection-13",
+        "from": "image processor Lambda",
+        "to": "assets DynamoDB table",
+        "type": "data"
+      },
+      {
+        "id": "connection-14",
+        "from": "video processor Lambda",
+        "to": "assets DynamoDB table",
+        "type": "data"
+      },
+      {
+        "id": "connection-15",
+        "from": "CloudFront distribution",
+        "to": "processed media S3 bucket",
+        "type": "data"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "Do not invent an authorization service or caller identity before the upload boundary is decided.",
+    "Do not add media formats, codecs, malware scanning, or workflow orchestration.",
+    "Do not add consumers or redrive automation for either dead-letter queue.",
+    "Do not infer cross-region replication, custom DNS, or a non-default CloudFront certificate.",
+    "Do not execute Terraform or inspect a live AWS account."
+  ],
+  "direction_recommendation": "LR",
+  "complexity_expectation": "overview-and-detail"
+}

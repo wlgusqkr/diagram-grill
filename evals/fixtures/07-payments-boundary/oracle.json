@@ -1,0 +1,100 @@
+{
+  "id": "07-payments-boundary",
+  "title": "External payment trust boundary",
+  "input_kind": "natural-language only",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "Checkout sends authorization requests through an internal payment adapter to an external processor.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 3,
+          "line_end": 3
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "The processor reference is stored on the order.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 3,
+          "line_end": 3
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "Settlement and dispute webhooks return from the external processor to the adapter.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line_start": 3,
+          "line_end": 3
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "tokenization-boundary",
+      "question": "Where are raw card details collected and tokenized?",
+      "why_it_matters": "This determines the PCI and trust boundary shown in the diagram."
+    },
+    {
+      "id": "payment-state-owner",
+      "question": "Which component owns payment state transitions after authorization?",
+      "why_it_matters": "The note does not establish whether the order or adapter is authoritative."
+    },
+    {
+      "id": "webhook-delivery",
+      "question": "How are webhook authenticity, retries, and duplicate delivery handled?",
+      "why_it_matters": "Failure and idempotency components must not be invented."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "checkout API",
+      "payment adapter",
+      "external payment processor",
+      "order store",
+      "external trust boundary"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "checkout API",
+        "to": "payment adapter",
+        "type": "sync"
+      },
+      {
+        "id": "connection-2",
+        "from": "payment adapter",
+        "to": "external payment processor",
+        "type": "sync"
+      },
+      {
+        "id": "connection-3",
+        "from": "external payment processor",
+        "to": "payment adapter",
+        "type": "event"
+      },
+      {
+        "id": "connection-4",
+        "from": "checkout API",
+        "to": "order store",
+        "type": "data"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "A named payment processor",
+    "A message queue for webhooks",
+    "A specific token vault",
+    "Multi-region payment processing"
+  ],
+  "direction_recommendation": "LR",
+  "complexity_expectation": "overview-only"
+}

@@ -1,0 +1,5 @@
+routes:
+  - path: /catalog
+    target: catalog-service
+  - path: /
+    target: commerce-monolith

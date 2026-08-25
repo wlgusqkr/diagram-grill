@@ -1,0 +1,137 @@
+{
+  "id": "04-k8s-observability",
+  "title": "Kubernetes telemetry pipeline",
+  "input_kind": "kubernetes",
+  "expected_evidence_facts": [
+    {
+      "id": "fact-1",
+      "fact": "The orders-api workload exports OTLP over gRPC to the collector service in the observability namespace.",
+      "evidence": [
+        {
+          "path": "app.yaml",
+          "line_start": 21,
+          "line_end": 33
+        }
+      ]
+    },
+    {
+      "id": "fact-2",
+      "fact": "The collector accepts OTLP and sends metrics to its Prometheus endpoint, traces to Tempo, and logs to Loki.",
+      "evidence": [
+        {
+          "path": "observability.yaml",
+          "line_start": 13,
+          "line_end": 42
+        }
+      ]
+    },
+    {
+      "id": "fact-3",
+      "fact": "Prometheus scrapes the collector metrics service endpoint every 30 seconds.",
+      "evidence": [
+        {
+          "path": "observability.yaml",
+          "line_start": 85,
+          "line_end": 97
+        }
+      ]
+    },
+    {
+      "id": "fact-4",
+      "fact": "Grafana is provisioned with Prometheus, Tempo, and Loki data sources using their cluster-local services.",
+      "evidence": [
+        {
+          "path": "observability.yaml",
+          "line_start": 191,
+          "line_end": 208
+        }
+      ]
+    },
+    {
+      "id": "fact-5",
+      "fact": "Grafana is exposed only by a ClusterIP Service in the supplied manifests.",
+      "evidence": [
+        {
+          "path": "observability.yaml",
+          "line_start": 234,
+          "line_end": 243
+        }
+      ]
+    }
+  ],
+  "critical_unresolved_decisions": [
+    {
+      "id": "operator-access",
+      "question": "How should operators reach the ClusterIP-only Grafana service?",
+      "why_it_matters": "Choosing internal-only access, an ingress, or another gateway changes the trust boundary and adds different access nodes and connections."
+    },
+    {
+      "id": "telemetry-retention",
+      "question": "What persistent storage and retention targets should Prometheus, Tempo, and Loki use?",
+      "why_it_matters": "No persistent volumes or object stores are declared, and the decision can add three storage paths or managed backend boundaries."
+    }
+  ],
+  "allowed_topology": {
+    "node_concepts": [
+      "orders-api workload",
+      "OpenTelemetry Collector",
+      "Prometheus",
+      "Tempo",
+      "Loki",
+      "Grafana"
+    ],
+    "required_connections": [
+      {
+        "id": "connection-1",
+        "from": "orders-api workload",
+        "to": "OpenTelemetry Collector",
+        "type": "async"
+      },
+      {
+        "id": "connection-2",
+        "from": "Prometheus",
+        "to": "OpenTelemetry Collector",
+        "type": "data"
+      },
+      {
+        "id": "connection-3",
+        "from": "OpenTelemetry Collector",
+        "to": "Tempo",
+        "type": "async"
+      },
+      {
+        "id": "connection-4",
+        "from": "OpenTelemetry Collector",
+        "to": "Loki",
+        "type": "async"
+      },
+      {
+        "id": "connection-5",
+        "from": "Grafana",
+        "to": "Prometheus",
+        "type": "data"
+      },
+      {
+        "id": "connection-6",
+        "from": "Grafana",
+        "to": "Tempo",
+        "type": "data"
+      },
+      {
+        "id": "connection-7",
+        "from": "Grafana",
+        "to": "Loki",
+        "type": "data"
+      }
+    ]
+  },
+  "forbidden_unsupported_assumptions": [
+    "Do not invent an ingress, load balancer, SSO proxy, or external operator path.",
+    "Do not invent persistent volumes, object storage, retention periods, or managed telemetry services.",
+    "Do not replace the central collector with a node-level DaemonSet or sidecars.",
+    "Do not infer a cloud provider, cluster region, or cross-cluster telemetry path.",
+    "Do not execute kubectl, Helm, Kustomize, or any workload image."
+  ],
+  "direction_recommendation": "LR",
+  "complexity_expectation": "overview-only"
+}

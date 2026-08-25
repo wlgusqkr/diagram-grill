@@ -1,0 +1,13 @@
+services:
+  gateway:
+    image: example/gateway:2
+  commerce-monolith:
+    image: example/commerce:14
+    environment:
+      DATABASE_URL: postgres://commerce-db/commerce
+  catalog-service:
+    image: example/catalog:1
+    environment:
+      DATABASE_URL: postgres://commerce-db/commerce
+  commerce-db:
+    image: postgres:16

@@ -1,0 +1,4 @@
+service:
+  name: orders-api
+  container_port: 8080
+  health_path: /healthz
