@@ -1,0 +1,309 @@
+"""Compile an approved architecture IR into deterministic Python source."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Mapping, Sequence, Tuple
+
+from .catalog import resolve_node
+from .validation import validate_spec
+
+
+GENERATOR_VERSION = "0.1.0-alpha"
+SUPPORTED_FORMATS = ("svg", "png")
+
+GRAPH_ATTR = {
+    "bgcolor": "#FFFFFF",
+    "fontcolor": "#111827",
+    "fontname": "Sans-Serif",
+    "fontsize": "16",
+    "labeljust": "l",
+    "labelloc": "t",
+    "nodesep": "0.70",
+    "pad": "0.45",
+    "ranksep": "0.90",
+    "splines": "ortho",
+}
+NODE_ATTR = {
+    "fontcolor": "#111827",
+    "fontname": "Sans-Serif",
+    "fontsize": "12",
+}
+EDGE_ATTR = {
+    "fontcolor": "#374151",
+    "fontname": "Sans-Serif",
+    "fontsize": "10",
+}
+CLUSTER_ATTR = {
+    "bgcolor": "#F8FAFC",
+    "fontcolor": "#374151",
+    "fontname": "Sans-Serif",
+    "fontsize": "12",
+    "pencolor": "#CBD5E1",
+    "style": "rounded",
+}
+EDGE_STYLES = {
+    "sync": {"color": "#4B5563", "penwidth": "1.4", "style": "solid"},
+    "async": {"color": "#2563EB", "penwidth": "1.4", "style": "dashed"},
+    "event": {"color": "#7C3AED", "penwidth": "1.6", "style": "dotted"},
+    "data": {"color": "#047857", "penwidth": "2.0", "style": "bold"},
+}
+
+NodeResolver = Callable[[str], Any]
+
+
+@dataclass(frozen=True)
+class CompiledDiagram:
+    """Trusted generated source plus the facts needed by the render manifest."""
+
+    source: str
+    warnings: Tuple[str, ...]
+    icons: Tuple[str, ...]
+    formats: Tuple[str, ...]
+
+
+def _normalize_formats(formats: Sequence[str]) -> Tuple[str, ...]:
+    if isinstance(formats, (str, bytes)) or not isinstance(formats, Sequence):
+        raise TypeError("formats must be a sequence of format names")
+
+    normalized = tuple(formats)
+    if not normalized:
+        raise ValueError("at least the svg format is required")
+    if any(not isinstance(item, str) for item in normalized):
+        raise TypeError("every output format must be a string")
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("output formats must not contain duplicates")
+
+    unsupported = [item for item in normalized if item not in SUPPORTED_FORMATS]
+    if unsupported:
+        raise ValueError("unsupported output format: {}".format(unsupported[0]))
+    if "svg" not in normalized:
+        raise ValueError("svg output is required")
+    return tuple(item for item in SUPPORTED_FORMATS if item in normalized)
+
+
+def _python_literal(value: Any) -> str:
+    """Return a stable Python literal for JSON-compatible values."""
+
+    if isinstance(value, dict):
+        items = [
+            "{}: {}".format(_python_literal(key), _python_literal(value[key]))
+            for key in sorted(value)
+        ]
+        return "{" + ", ".join(items) + "}"
+    if isinstance(value, (list, tuple)):
+        return "[{}]".format(", ".join(_python_literal(item) for item in value))
+    return repr(value)
+
+
+def _node_label(node: Mapping[str, Any]) -> str:
+    label = str(node["label"])
+    fallback_for = node.get("icon_fallback_for")
+    if isinstance(fallback_for, str):
+        label += "\n[generic: {}]".format(fallback_for)
+    return label
+
+
+def _emit_node(
+    lines: List[str],
+    node: Mapping[str, Any],
+    variable_name: str,
+    icon_aliases: Mapping[str, str],
+    indent: int,
+) -> None:
+    prefix = "    " * indent
+    lines.append(
+        "{}{} = {}({}, nodeid={})".format(
+            prefix,
+            variable_name,
+            icon_aliases[str(node["icon"])],
+            _python_literal(_node_label(node)),
+            _python_literal(node["id"]),
+        )
+    )
+
+
+def _emit_group(
+    lines: List[str],
+    group: Mapping[str, Any],
+    *,
+    children: Mapping[str, Sequence[Mapping[str, Any]]],
+    nodes_by_group: Mapping[str, Sequence[Tuple[Mapping[str, Any], str]]],
+    icon_aliases: Mapping[str, str],
+    indent: int,
+) -> None:
+    prefix = "    " * indent
+    group_id = str(group["id"])
+    lines.append(
+        "{}with Cluster({}, graph_attr=CLUSTER_ATTR):".format(
+            prefix, _python_literal(group["label"])
+        )
+    )
+
+    group_nodes = nodes_by_group.get(group_id, ())
+    group_children = children.get(group_id, ())
+    if not group_nodes and not group_children:
+        lines.append("{}    pass".format(prefix))
+        return
+
+    for node, variable_name in group_nodes:
+        _emit_node(lines, node, variable_name, icon_aliases, indent + 1)
+    for child in group_children:
+        _emit_group(
+            lines,
+            child,
+            children=children,
+            nodes_by_group=nodes_by_group,
+            icon_aliases=icon_aliases,
+            indent=indent + 1,
+        )
+
+
+def _generate_source(
+    spec: Mapping[str, Any],
+    *,
+    formats: Tuple[str, ...],
+    icon_aliases: Mapping[str, str],
+) -> str:
+    lines = [
+        '"""Generated by diagram-grill. Edit diagram.json, not this file."""',
+        "",
+        "from pathlib import Path",
+        "",
+        "from diagrams import Cluster, Diagram, Edge",
+    ]
+    for icon_path in sorted(icon_aliases):
+        module_name, _, class_name = icon_path.rpartition(".")
+        lines.append(
+            "from {} import {} as {}".format(
+                module_name, class_name, icon_aliases[icon_path]
+            )
+        )
+
+    lines.extend(
+        [
+            "",
+            "OUTPUT_BASENAME = str(Path(__file__).resolve().with_name(\"diagram\"))",
+            "GRAPH_ATTR = {}".format(_python_literal(GRAPH_ATTR)),
+            "NODE_ATTR = {}".format(_python_literal(NODE_ATTR)),
+            "EDGE_ATTR = {}".format(_python_literal(EDGE_ATTR)),
+            "CLUSTER_ATTR = {}".format(_python_literal(CLUSTER_ATTR)),
+            "EDGE_STYLES = {}".format(_python_literal(EDGE_STYLES)),
+            "",
+            "",
+            "def render():",
+            "    with Diagram(",
+            "        {},".format(_python_literal(spec["title"])),
+            "        filename=OUTPUT_BASENAME,",
+            "        direction={},".format(_python_literal(spec["direction"])),
+            "        outformat={},".format(_python_literal(list(formats))),
+            "        show=False,",
+            "        graph_attr=GRAPH_ATTR,",
+            "        node_attr=NODE_ATTR,",
+            "        edge_attr=EDGE_ATTR,",
+            "    ):",
+        ]
+    )
+
+    groups = tuple(spec["groups"])
+    nodes = tuple(spec["nodes"])
+    children: Dict[str, List[Mapping[str, Any]]] = {}
+    root_groups: List[Mapping[str, Any]] = []
+    for group in groups:
+        parent = group.get("parent")
+        if isinstance(parent, str):
+            children.setdefault(parent, []).append(group)
+        else:
+            root_groups.append(group)
+
+    node_variables = {
+        str(node["id"]): "_node_{}".format(index) for index, node in enumerate(nodes)
+    }
+    nodes_by_group: Dict[str, List[Tuple[Mapping[str, Any], str]]] = {}
+    ungrouped_nodes: List[Tuple[Mapping[str, Any], str]] = []
+    for node in nodes:
+        item = (node, node_variables[str(node["id"])])
+        group_id = node.get("group")
+        if isinstance(group_id, str):
+            nodes_by_group.setdefault(group_id, []).append(item)
+        else:
+            ungrouped_nodes.append(item)
+
+    for node, variable_name in ungrouped_nodes:
+        _emit_node(lines, node, variable_name, icon_aliases, 2)
+    for group in root_groups:
+        _emit_group(
+            lines,
+            group,
+            children=children,
+            nodes_by_group=nodes_by_group,
+            icon_aliases=icon_aliases,
+            indent=2,
+        )
+
+    for edge in spec["edges"]:
+        style_name = str(edge["type"])
+        label = edge.get("label", "")
+        lines.append(
+            "        {} >> Edge(label={}, **EDGE_STYLES[{}]) >> {}".format(
+                node_variables[str(edge["from"])],
+                _python_literal(label),
+                _python_literal(style_name),
+                node_variables[str(edge["to"])],
+            )
+        )
+
+    lines.extend(["", "", 'if __name__ == "__main__":', "    render()", ""])
+    return "\n".join(lines)
+
+
+def compile_spec(
+    spec: Mapping[str, Any],
+    formats: Sequence[str] = ("svg",),
+    *,
+    node_resolver: NodeResolver = resolve_node,
+) -> CompiledDiagram:
+    """Validate and compile an approved spec without writing or rendering files."""
+
+    validate_spec(spec, mode="render")
+    normalized_formats = _normalize_formats(formats)
+
+    icons = tuple(sorted({str(node["icon"]) for node in spec["nodes"]}))
+    for icon_path in icons:
+        node_resolver(icon_path)
+    icon_aliases = {
+        icon_path: "_Icon{}".format(index) for index, icon_path in enumerate(icons)
+    }
+
+    warnings = tuple(
+        "Node {!r} uses the generic icon for {!r}.".format(
+            node["id"], node["icon_fallback_for"]
+        )
+        for node in spec["nodes"]
+        if "icon_fallback_for" in node
+    )
+    source = _generate_source(
+        spec,
+        formats=normalized_formats,
+        icon_aliases=icon_aliases,
+    )
+    compile(source, "diagram.py", "exec")
+    return CompiledDiagram(
+        source=source,
+        warnings=warnings,
+        icons=icons,
+        formats=normalized_formats,
+    )
+
+
+__all__ = [
+    "CLUSTER_ATTR",
+    "CompiledDiagram",
+    "EDGE_ATTR",
+    "EDGE_STYLES",
+    "GENERATOR_VERSION",
+    "GRAPH_ATTR",
+    "NODE_ATTR",
+    "SUPPORTED_FORMATS",
+    "compile_spec",
+]
