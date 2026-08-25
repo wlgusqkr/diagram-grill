@@ -29,11 +29,18 @@ Confirm that the request is in scope and explicitly invoked. A compatible
 request concerns cloud infrastructure or software-system architecture and
 needs a component, deployment, network, integration, or data-flow view.
 
-Run only read-only prerequisite checks for Python 3.9+, a trusted canonical
-Graphviz `dot` outside the workspace and repository, `diagrams==0.25.1`,
-`graphviz==0.20.3`, and the other pinned Python dependencies. If a prerequisite
-is missing or has the wrong version, stop and provide installation
-instructions; do not install it.
+Resolve the copied global skill directory and target repository and compare
+existing components by filesystem identity so symlinks and case-variant aliases
+cannot hide overlap. Stop if they overlap in either direction.
+Project-local or repository-backed skill installations are unsupported.
+Run only read-only
+prerequisite checks with a user-trusted absolute Python interpreter outside the
+target repository, a trusted canonical Graphviz `dot` outside the workspace
+and repository, `diagrams==0.25.1`,
+`graphviz==0.20.3`, and the other pinned Python dependencies. Never use a
+repository-local virtual environment or a bare interpreter selected by the
+repository's shell state. If a prerequisite is missing or has the wrong
+version, stop and provide installation instructions; do not install it.
 
 Start with one architectural question the diagram must answer. Record the
 intended audience and abstraction level. Do not mix logical services, source

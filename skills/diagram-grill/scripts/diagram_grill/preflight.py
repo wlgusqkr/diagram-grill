@@ -70,6 +70,10 @@ VersionGetter = Callable[[str], str]
 ModuleImporter = Callable[[str], Any]
 CommandRunner = Callable[..., subprocess.CompletedProcess]
 ExecutableFinder = Callable[..., Optional[str]]
+PosixGroupLookup = Callable[[int], Any]
+PosixUserLookup = Callable[[str], Any]
+PosixAllUsersLookup = Callable[[], Sequence[Any]]
+PosixAclChecker = Callable[[Path, str], Optional[str]]
 
 
 def run_preflight(
@@ -382,7 +386,7 @@ def _check_dot(
             actual=str(absolute_candidate),
         )
 
-    trust_failure = _posix_trust_failure(canonical_candidate)
+    trust_failure = posix_executable_trust_failure(canonical_candidate)
     if trust_failure is not None:
         return _dot_failure(
             trust_failure,
@@ -411,10 +415,24 @@ def _check_dot(
             actual=str(canonical_candidate),
         )
 
+    trust_failure = posix_executable_trust_failure(canonical_candidate)
+    if trust_failure is not None:
+        return _dot_failure(
+            trust_failure,
+            expected="locally trusted canonical executable path",
+            actual=str(canonical_candidate),
+        )
+
     command = [str(canonical_candidate), "-V"]
+    command_environment = _minimal_dot_environment(
+        environment,
+        canonical_candidate.parent,
+    )
     try:
         completed = command_runner(
             command,
+            cwd=str(canonical_candidate.parent),
+            env=command_environment,
             capture_output=True,
             text=True,
             timeout=timeout_seconds,
@@ -517,11 +535,25 @@ def _dot_failure(
     )
 
 
-def _posix_trust_failure(path: Path) -> Optional[str]:
+def posix_executable_trust_failure(
+    path: Path,
+    *,
+    effective_uid: Optional[int] = None,
+    group_lookup: Optional[PosixGroupLookup] = None,
+    user_lookup: Optional[PosixUserLookup] = None,
+    all_users_lookup: Optional[PosixAllUsersLookup] = None,
+    platform_name: Optional[str] = None,
+    acl_checker: Optional[PosixAclChecker] = None,
+) -> Optional[str]:
+    """Return why a canonical executable path is not locally trusted on POSIX."""
+
     if os.name != "posix":
         return None
 
-    effective_uid = os.geteuid()
+    resolved_effective_uid = os.geteuid() if effective_uid is None else effective_uid
+    resolved_platform = sys.platform if platform_name is None else platform_name
+    resolved_acl_checker = acl_checker or _posix_acl_trust_failure
+    trusted_uids = frozenset((0, resolved_effective_uid))
     for component in (path,) + tuple(path.parents):
         try:
             component_stat = component.stat()
@@ -534,15 +566,201 @@ def _posix_trust_failure(path: Path) -> Optional[str]:
                 "Refusing Graphviz 'dot' because its canonical path crosses a "
                 "world-writable component: {}."
             ).format(component)
-        if (
-            component_stat.st_mode & stat.S_IWGRP
-            and component_stat.st_uid != effective_uid
-        ):
+        if component_stat.st_uid not in trusted_uids:
             return (
                 "Refusing Graphviz 'dot' because its canonical path crosses a "
-                "group-writable component not owned by the current user: {}."
-            ).format(component)
+                "component owned by untrusted uid {}: {}."
+            ).format(component_stat.st_uid, component)
+        acl_failure = resolved_acl_checker(component, resolved_platform)
+        if acl_failure is not None:
+            return acl_failure
+        if component_stat.st_mode & stat.S_IWGRP:
+            group_failure = _posix_group_write_trust_failure(
+                component,
+                component_stat,
+                resolved_effective_uid,
+                resolved_platform,
+                group_lookup=group_lookup,
+                user_lookup=user_lookup,
+                all_users_lookup=all_users_lookup,
+            )
+            if group_failure is not None:
+                return group_failure
     return None
+
+
+def _posix_group_write_trust_failure(
+    component: Path,
+    component_stat: os.stat_result,
+    effective_uid: int,
+    platform_name: str,
+    *,
+    group_lookup: Optional[PosixGroupLookup],
+    user_lookup: Optional[PosixUserLookup] = None,
+    all_users_lookup: Optional[PosixAllUsersLookup] = None,
+) -> Optional[str]:
+    group_id = int(component_stat.st_gid)
+    homebrew_root = Path("/opt/homebrew")
+    if (
+        platform_name != "darwin"
+        or (
+            component != homebrew_root
+            and homebrew_root not in component.parents
+        )
+        or int(component_stat.st_uid) not in (0, effective_uid)
+    ):
+        return (
+            "Refusing Graphviz 'dot' because its canonical path crosses a "
+            "group-writable component outside the narrow macOS Homebrew "
+            "administrator exception: {}."
+        ).format(component)
+
+    try:
+        if group_lookup is None:
+            import grp
+
+            group_lookup = grp.getgrgid
+        if user_lookup is None or all_users_lookup is None:
+            import pwd
+
+            user_lookup = user_lookup or pwd.getpwnam
+            all_users_lookup = all_users_lookup or pwd.getpwall
+        group = group_lookup(group_id)
+        resolved_gid = _posix_numeric_id(group, "gr_gid")
+        if resolved_gid != group_id:
+            raise ValueError("group lookup returned a different gid")
+        group_name = str(group.gr_name)
+        member_names = tuple(group.gr_mem)
+    except Exception as exc:
+        return _posix_group_lookup_failure(component, group_id, exc)
+
+    if group_id != 80 or group_name != "admin":
+        return (
+            "Refusing Graphviz 'dot' because macOS Homebrew group-writable "
+            "component {} is owned by unexpected group {!r} (gid {})."
+        ).format(component, group_name, group_id)
+
+    trusted_uids = frozenset((0, effective_uid))
+    try:
+        if any(not isinstance(name, str) or not name for name in member_names):
+            raise ValueError("group membership contains an invalid user name")
+        supplementary_users = tuple(user_lookup(name) for name in member_names)
+        primary_users = tuple(
+            user for user in all_users_lookup()
+            if _posix_numeric_id(user, "pw_gid") == group_id
+        )
+        untrusted = sorted(
+            {
+                str(user.pw_name)
+                for user in supplementary_users + primary_users
+                if _posix_numeric_id(user, "pw_uid") not in trusted_uids
+            }
+        )
+    except Exception as exc:
+        return _posix_group_lookup_failure(component, group_id, exc)
+    if untrusted:
+        return (
+            "Refusing Graphviz 'dot' because macOS Homebrew group-writable "
+            "component {} is writable by untrusted admin-group principal(s): {}."
+        ).format(component, ", ".join(untrusted))
+    return None
+
+
+def _posix_acl_trust_failure(component: Path, platform_name: str) -> Optional[str]:
+    if platform_name == "darwin":
+        return _darwin_acl_trust_failure(component)
+    if platform_name.startswith("linux"):
+        try:
+            names = os.listxattr(str(component), follow_symlinks=False)
+        except (AttributeError, OSError) as exc:
+            return (
+                "Refusing Graphviz 'dot' because ACL metadata could not be "
+                "inspected for {} ({}: {})."
+            ).format(component, type(exc).__name__, exc)
+        if any("acl" in str(name).casefold() for name in names):
+            return (
+                "Refusing Graphviz 'dot' because its canonical path crosses a "
+                "component with extended ACL metadata: {}."
+            ).format(component)
+        return None
+    return (
+        "Refusing Graphviz 'dot' because extended ACL trust checks are not "
+        "implemented for POSIX platform {!r}: {}."
+    ).format(platform_name, component)
+
+
+def _darwin_acl_trust_failure(component: Path) -> Optional[str]:
+    import ctypes
+    import errno
+
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        acl_get_file = libc.acl_get_file
+        acl_get_file.argtypes = (ctypes.c_char_p, ctypes.c_int)
+        acl_get_file.restype = ctypes.c_void_p
+        acl_get_entry = libc.acl_get_entry
+        acl_get_entry.argtypes = (
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_void_p),
+        )
+        acl_get_entry.restype = ctypes.c_int
+        acl_free = libc.acl_free
+        acl_free.argtypes = (ctypes.c_void_p,)
+        acl_free.restype = ctypes.c_int
+    except (AttributeError, OSError) as exc:
+        return (
+            "Refusing Graphviz 'dot' because macOS ACL APIs are unavailable "
+            "for {} ({}: {})."
+        ).format(component, type(exc).__name__, exc)
+
+    ctypes.set_errno(0)
+    acl = acl_get_file(os.fsencode(str(component)), 0x00000100)
+    if not acl:
+        error_number = ctypes.get_errno()
+        if error_number == errno.ENOENT:
+            return None
+        return (
+            "Refusing Graphviz 'dot' because macOS ACL metadata could not be "
+            "read for {} (errno {})."
+        ).format(component, error_number)
+
+    try:
+        entry = ctypes.c_void_p()
+        ctypes.set_errno(0)
+        status = acl_get_entry(acl, 0, ctypes.byref(entry))
+        if status == 0:
+            return (
+                "Refusing Graphviz 'dot' because its canonical path crosses a "
+                "component with an extended macOS ACL: {}."
+            ).format(component)
+        error_number = ctypes.get_errno()
+        if error_number != errno.EINVAL:
+            return (
+                "Refusing Graphviz 'dot' because macOS ACL entries could not be "
+                "enumerated for {} (errno {})."
+            ).format(component, error_number)
+        return None
+    finally:
+        acl_free(acl)
+
+
+def _posix_numeric_id(record: Any, field: str) -> int:
+    value = getattr(record, field)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("account lookup returned an invalid {}".format(field))
+    return value
+
+
+def _posix_group_lookup_failure(
+    component: Path,
+    group_id: int,
+    error: Exception,
+) -> str:
+    return (
+        "Refusing Graphviz 'dot' because POSIX membership for group-writable "
+        "component {} (gid {}) could not be resolved completely ({}: {})."
+    ).format(component, group_id, type(error).__name__, error)
 
 
 def capture_executable(path: Path) -> Tuple[ExecutableIdentity, str]:
@@ -593,6 +811,8 @@ def _executable_identity(result: os.stat_result) -> ExecutableIdentity:
 def _run_bounded_command(
     command: Sequence[str],
     *,
+    cwd: Optional[str] = None,
+    env: Optional[Mapping[str, str]] = None,
     capture_output: bool,
     text: bool,
     timeout: float,
@@ -603,6 +823,8 @@ def _run_bounded_command(
         raise ValueError("bounded command runner requires captured output and shell=False")
 
     popen_arguments = {
+        "cwd": cwd,
+        "env": None if env is None else dict(env),
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
         "text": text,
@@ -631,6 +853,26 @@ def _run_bounded_command(
     if check:
         completed.check_returncode()
     return completed
+
+
+def _minimal_dot_environment(
+    source: Mapping[str, str],
+    executable_directory: Path,
+) -> Mapping[str, str]:
+    """Build an environment that cannot inject loaders or Graphviz settings."""
+
+    environment = {
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PATH": str(executable_directory),
+    }
+    if os.name == "nt":
+        for key in ("SYSTEMROOT", "WINDIR"):
+            value = source.get(key)
+            if value:
+                environment[key] = str(value)
+        environment["NoDefaultCurrentDirectoryInExePath"] = "1"
+    return environment
 
 
 def _terminate_bounded_process(process: subprocess.Popen) -> None:

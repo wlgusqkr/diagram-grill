@@ -30,10 +30,21 @@ readable visual system; edge appearance communicates connection semantics.
 
 ### 1. Check the local renderer
 
-Run the read-only preflight before interviewing:
+Use only a copied global installation. Before running any command, resolve the
+installed skill directory and the target repository or workspace and compare
+their filesystem identities, not only their path strings.
+Stop when the paths overlap in either direction, including through a symlink or
+case-variant alias.
+A project-local copy is unsupported because the repository could replace
+executable skill files.
+
+Use an absolute Python interpreter path that the user installed and trusts
+outside the target repository. Never use a repository-local virtual
+environment, a bare `python3` resolved from the repository's shell state, or a
+relative skill path. Run the read-only preflight before interviewing:
 
 ```text
-python3 <skill-directory>/scripts/diagram_grill_cli.py preflight
+<trusted-absolute-python> -I <absolute-skill-directory>/scripts/diagram_grill_cli.py preflight
 ```
 
 If it fails, stop and report the failed checks. Do not install Python,
@@ -46,7 +57,7 @@ through the bounded evidence command, which rejects traversal, binary input,
 and symlinked files or parent directories:
 
 ```text
-python3 <skill-directory>/scripts/diagram_grill_cli.py evidence --repo <target-repository> --json <relative-file> [<relative-file> ...]
+<trusted-absolute-python> -I <absolute-skill-directory>/scripts/diagram_grill_cli.py evidence --repo <target-repository> --json <relative-file> [<relative-file> ...]
 ```
 
 Terraform, Kubernetes, Docker Compose, deployment configuration, application
@@ -118,7 +129,7 @@ approval if one is needed.
 Resolve every icon against the pinned local catalog:
 
 ```text
-python3 <skill-directory>/scripts/diagram_grill_cli.py catalog "<service>" --provider <provider>
+<trusted-absolute-python> -I <absolute-skill-directory>/scripts/diagram_grill_cli.py catalog "<service>" --provider <provider>
 ```
 
 Never invent or fuzzy-substitute an import path. A vendor, cloud, SaaS, or
@@ -137,7 +148,7 @@ input file. When a client exposes only a shell, use a quoted heredoc so shell
 expansion is disabled:
 
 ```text
-python3 <skill-directory>/scripts/diagram_grill_cli.py build - --workspace <target-repository> --png <<'DIAGRAM_GRILL_SPEC'
+<trusted-absolute-python> -I <absolute-skill-directory>/scripts/diagram_grill_cli.py build - --workspace <target-repository> --png <<'DIAGRAM_GRILL_SPEC'
 <approved JSON>
 DIAGRAM_GRILL_SPEC
 ```

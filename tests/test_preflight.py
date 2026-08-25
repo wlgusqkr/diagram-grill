@@ -11,6 +11,8 @@ import unittest
 from dataclasses import FrozenInstanceError
 from importlib import metadata
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 
 MODULE_PATH = (
@@ -84,6 +86,15 @@ class PreflightTests(unittest.TestCase):
             self.assertEqual([str(self.dot_path), "-V"], command)
             self.assertFalse(kwargs["shell"])
             self.assertEqual(0.25, kwargs["timeout"])
+            self.assertEqual(str(self.dot_path.parent), kwargs["cwd"])
+            self.assertEqual(
+                {
+                    "LANG": "C",
+                    "LC_ALL": "C",
+                    "PATH": str(self.dot_path.parent),
+                },
+                kwargs["env"],
+            )
             return subprocess.CompletedProcess(
                 command,
                 0,
@@ -142,9 +153,9 @@ class PreflightTests(unittest.TestCase):
         self.assertEqual(str(installed_dot), result.dot_path)
 
     @unittest.skipUnless(os.name == "posix", "POSIX permission policy only")
-    def test_world_writable_parent_is_rejected_but_current_owned_group_write_is_allowed(self):
+    def test_world_writable_parent_is_rejected(self):
         managed_root = Path(self.tools_directory.name) / "managed"
-        managed_root.mkdir(mode=0o775)
+        managed_root.mkdir()
         managed_dot = managed_root / "dot"
         managed_dot.write_text("managed", encoding="utf-8")
         managed_dot.chmod(0o755)
@@ -155,13 +166,208 @@ class PreflightTests(unittest.TestCase):
             stdout="dot - graphviz version 12.2.1 (0)",
             stderr="",
         )
-        allowed = self.run_checks(completed, dot_candidate=managed_dot.resolve())
-        self.assertTrue(self.by_name(allowed)["dot"].ok)
-
         managed_root.chmod(0o777)
         rejected = self.run_checks(completed, dot_candidate=managed_dot.resolve())
         self.assertFalse(self.by_name(rejected)["dot"].ok)
         self.assertIn("world-writable", self.by_name(rejected)["dot"].message)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission policy only")
+    def test_group_write_has_only_a_narrow_macos_homebrew_admin_exception(self):
+        component_stat = SimpleNamespace(st_mode=0o40775, st_uid=501, st_gid=80)
+        admin_group = SimpleNamespace(
+            gr_name="admin", gr_gid=80, gr_mem=["root", "current"]
+        )
+        users = {
+            "root": SimpleNamespace(pw_name="root", pw_uid=0, pw_gid=0),
+            "current": SimpleNamespace(pw_name="current", pw_uid=501, pw_gid=20),
+        }
+        lookup_user = users.__getitem__
+        all_users = lambda: list(users.values())
+
+        accepted = PREFLIGHT._posix_group_write_trust_failure(
+            Path("/opt/homebrew/Cellar"),
+            component_stat,
+            501,
+            "darwin",
+            group_lookup=lambda gid: admin_group,
+            user_lookup=lookup_user,
+            all_users_lookup=all_users,
+        )
+        linux = PREFLIGHT._posix_group_write_trust_failure(
+            Path("/opt/homebrew/Cellar"),
+            component_stat,
+            501,
+            "linux",
+            group_lookup=lambda gid: admin_group,
+            user_lookup=lookup_user,
+            all_users_lookup=all_users,
+        )
+        other_tree = PREFLIGHT._posix_group_write_trust_failure(
+            Path("/usr/local/bin"),
+            component_stat,
+            501,
+            "darwin",
+            group_lookup=lambda gid: admin_group,
+            user_lookup=lookup_user,
+            all_users_lookup=all_users,
+        )
+
+        self.assertIsNone(accepted)
+        self.assertIn("outside the narrow", linux)
+        self.assertIn("outside the narrow", other_tree)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission policy only")
+    def test_homebrew_group_write_rejects_unexpected_group_or_lookup_failure(self):
+        component_stat = SimpleNamespace(st_mode=0o40775, st_uid=501, st_gid=81)
+        wrong_group = SimpleNamespace(gr_name="wheel", gr_gid=81, gr_mem=[])
+
+        mismatch = PREFLIGHT._posix_group_write_trust_failure(
+            Path("/opt/homebrew/Cellar"),
+            component_stat,
+            501,
+            "darwin",
+            group_lookup=lambda gid: wrong_group,
+        )
+
+        def failed_group_lookup(group_id):
+            raise KeyError(group_id)
+
+        lookup_failure = PREFLIGHT._posix_group_write_trust_failure(
+            Path("/opt/homebrew/Cellar"),
+            component_stat,
+            501,
+            "darwin",
+            group_lookup=failed_group_lookup,
+        )
+
+        self.assertIn("unexpected group", mismatch)
+        self.assertIn("could not be resolved completely", lookup_failure)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission policy only")
+    def test_homebrew_group_write_rejects_untrusted_supplementary_member(self):
+        component_stat = SimpleNamespace(st_mode=0o40775, st_uid=501, st_gid=80)
+        admin_group = SimpleNamespace(
+            gr_name="admin", gr_gid=80, gr_mem=["root", "current", "attacker"]
+        )
+        users = {
+            "root": SimpleNamespace(pw_name="root", pw_uid=0, pw_gid=0),
+            "current": SimpleNamespace(pw_name="current", pw_uid=501, pw_gid=20),
+            "attacker": SimpleNamespace(pw_name="attacker", pw_uid=502, pw_gid=20),
+        }
+
+        failure = PREFLIGHT._posix_group_write_trust_failure(
+            Path("/opt/homebrew/Cellar"),
+            component_stat,
+            501,
+            "darwin",
+            group_lookup=lambda gid: admin_group,
+            user_lookup=users.__getitem__,
+            all_users_lookup=lambda: list(users.values()),
+        )
+
+        self.assertIn("untrusted admin-group principal(s): attacker", failure)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission policy only")
+    def test_homebrew_group_write_rejects_untrusted_primary_group_member(self):
+        component_stat = SimpleNamespace(st_mode=0o40775, st_uid=501, st_gid=80)
+        admin_group = SimpleNamespace(
+            gr_name="admin", gr_gid=80, gr_mem=["root", "current"]
+        )
+        users = {
+            "root": SimpleNamespace(pw_name="root", pw_uid=0, pw_gid=0),
+            "current": SimpleNamespace(pw_name="current", pw_uid=501, pw_gid=20),
+        }
+        primary_attacker = SimpleNamespace(
+            pw_name="primary-attacker", pw_uid=503, pw_gid=80
+        )
+
+        failure = PREFLIGHT._posix_group_write_trust_failure(
+            Path("/opt/homebrew/Cellar"),
+            component_stat,
+            501,
+            "darwin",
+            group_lookup=lambda gid: admin_group,
+            user_lookup=users.__getitem__,
+            all_users_lookup=lambda: list(users.values()) + [primary_attacker],
+        )
+
+        self.assertIn("untrusted admin-group principal(s): primary-attacker", failure)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission policy only")
+    def test_path_component_owned_by_an_untrusted_uid_is_rejected(self):
+        component_stat = SimpleNamespace(
+            st_mode=0o40755,
+            st_uid=502,
+            st_gid=20,
+        )
+
+        with mock.patch.object(Path, "stat", return_value=component_stat):
+            failure = PREFLIGHT.posix_executable_trust_failure(
+                Path("/opt/homebrew/bin/dot"),
+                effective_uid=501,
+                platform_name="darwin",
+                acl_checker=lambda component, platform: None,
+            )
+
+        self.assertIn("owned by untrusted uid 502", failure)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission policy only")
+    def test_extended_acl_failure_is_propagated(self):
+        component_stat = SimpleNamespace(st_mode=0o40755, st_uid=501, st_gid=20)
+
+        with mock.patch.object(Path, "stat", return_value=component_stat):
+            failure = PREFLIGHT.posix_executable_trust_failure(
+                Path("/opt/homebrew/bin/dot"),
+                effective_uid=501,
+                platform_name="darwin",
+                acl_checker=lambda component, platform: "extended ACL rejected",
+            )
+
+        self.assertEqual("extended ACL rejected", failure)
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS ACL integration only")
+    def test_real_macos_extended_acl_is_rejected(self):
+        acl_root = Path(self.tools_directory.name) / "acl-root"
+        acl_root.mkdir()
+        subprocess.run(
+            ["/bin/chmod", "+a", "everyone allow add_file,delete_child", str(acl_root)],
+            check=True,
+        )
+        try:
+            failure = PREFLIGHT._darwin_acl_trust_failure(acl_root)
+        finally:
+            subprocess.run(["/bin/chmod", "-N", str(acl_root)], check=True)
+
+        self.assertIn("extended macOS ACL", failure)
+
+    def test_linux_acl_metadata_is_rejected(self):
+        with mock.patch.object(
+            PREFLIGHT.os,
+            "listxattr",
+            return_value=["system.posix_acl_access"],
+            create=True,
+        ):
+            failure = PREFLIGHT._posix_acl_trust_failure(
+                Path("/usr/bin/dot"),
+                "linux",
+            )
+
+        self.assertIn("extended ACL metadata", failure)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission policy only")
+    def test_dot_trust_is_rechecked_immediately_before_version_spawn(self):
+        command_runner = mock.Mock()
+        with mock.patch.object(
+            PREFLIGHT,
+            "posix_executable_trust_failure",
+            side_effect=(None, "Graphviz path trust changed before spawn"),
+        ) as trust_check:
+            result = self.run_checks(command_runner)
+
+        self.assertFalse(self.by_name(result)["dot"].ok)
+        self.assertIn("trust changed before spawn", self.by_name(result)["dot"].message)
+        self.assertEqual(2, trust_check.call_count)
+        command_runner.assert_not_called()
 
     def test_symlink_candidate_returns_the_canonical_executable(self):
         alias_root = Path(self.tools_directory.name) / "alias"
@@ -244,6 +450,43 @@ class PreflightTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertFalse(dot.ok)
         self.assertIn("did not finish within", dot.message)
+
+    def test_dot_version_check_drops_loader_and_graphviz_environment(self):
+        captured = {}
+
+        def command_runner(command, **kwargs):
+            captured.update(kwargs)
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="dot - graphviz version 12.2.1 (0)",
+                stderr="",
+            )
+
+        def version_getter(distribution):
+            return self.versions[distribution]
+
+        result = run_preflight(
+            python_version=(3, 11, 9),
+            version_getter=version_getter,
+            module_importer=lambda name: object(),
+            command_runner=command_runner,
+            executable_finder=lambda name, **kwargs: str(self.dot_path),
+            environment={
+                "PATH": "/hostile/bin",
+                "LD_PRELOAD": "/hostile/inject.so",
+                "DYLD_INSERT_LIBRARIES": "/hostile/inject.dylib",
+                "GV_FILE_PATH": "/hostile/graphviz",
+            },
+            forbidden_roots=(self.workspace,),
+            dot_timeout_seconds=0.25,
+        )
+
+        self.assertTrue(self.by_name(result)["dot"].ok)
+        self.assertEqual(str(self.dot_path.parent), captured["cwd"])
+        self.assertNotIn("LD_PRELOAD", captured["env"])
+        self.assertNotIn("DYLD_INSERT_LIBRARIES", captured["env"])
+        self.assertNotIn("GV_FILE_PATH", captured["env"])
 
     def test_dot_command_failure_includes_exit_code(self):
         def command_runner(command, **kwargs):

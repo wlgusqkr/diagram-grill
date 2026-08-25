@@ -23,3 +23,13 @@ imports, paths, labels, and Graphviz attributes are allowlisted. Generated
 code is still executed locally, so users should inspect proposed changes and
 run the skill with ordinary least-privilege workspace permissions.
 
+Only a copied global installation whose canonical skill directory is outside
+the target repository and workspace is supported. Project-local installs are
+not a security boundary because repository-controlled files could replace the
+skill instructions or renderer. Invoke the CLI with a trusted absolute Python
+interpreter outside the target repository and Python isolated mode; never use a
+repository-local virtual environment.
+
+The detailed runtime, evidence, rendering, and icon trust model is documented
+in
+[`skills/diagram-grill/references/security.md`](skills/diagram-grill/references/security.md).

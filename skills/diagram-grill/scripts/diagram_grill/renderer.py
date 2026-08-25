@@ -121,6 +121,7 @@ _PASSTHROUGH_ENV_KEYS = frozenset(
     )
 )
 _TERMINATION_GRACE_SECONDS = 0.25
+_SKILL_ROOT = Path(__file__).resolve(strict=True).parents[2]
 
 
 class BundleBuildError(RuntimeError):
@@ -193,6 +194,11 @@ def build_bundle(
     if not workspace.is_dir():
         raise BundleBuildError(
             "Workspace root does not exist or is not a directory: {}".format(workspace)
+        )
+    if _paths_overlap(workspace, _SKILL_ROOT):
+        raise BundleBuildError(
+            "Installed skill path overlaps the target workspace; use a copied "
+            "global installation outside the target repository and workspace"
         )
     if (
         isinstance(timeout_seconds, bool)
@@ -331,6 +337,24 @@ def build_bundle(
         )
 
     return target
+
+
+def _paths_overlap(first: Path, second: Path) -> bool:
+    if first == second or first in second.parents or second in first.parents:
+        return True
+    for component in (second,) + tuple(second.parents):
+        try:
+            if first.samefile(component):
+                return True
+        except FileNotFoundError:
+            continue
+    for component in (first,) + tuple(first.parents):
+        try:
+            if second.samefile(component):
+                return True
+        except FileNotFoundError:
+            continue
+    return False
 
 
 def _default_loader() -> Loader:
@@ -519,25 +543,9 @@ def _renderer_executable_identity(result: os.stat_result) -> _ExecutableIdentity
 
 
 def _posix_dot_trust_failure(path: Path) -> Optional[str]:
-    if os.name != "posix":
-        return None
-    effective_uid = os.geteuid()
-    for component in (path,) + tuple(path.parents):
-        component_stat = component.stat()
-        if component_stat.st_mode & stat.S_IWOTH:
-            return (
-                "Refusing Graphviz dot because its canonical path crosses a "
-                "world-writable component: {}"
-            ).format(component)
-        if (
-            component_stat.st_mode & stat.S_IWGRP
-            and component_stat.st_uid != effective_uid
-        ):
-            return (
-                "Refusing Graphviz dot because its canonical path crosses a "
-                "group-writable component not owned by the current user: {}"
-            ).format(component)
-    return None
+    from .preflight import posix_executable_trust_failure
+
+    return posix_executable_trust_failure(path)
 
 
 def _runtime_forbidden_roots(workspace: Path) -> Tuple[Path, ...]:
@@ -595,7 +603,7 @@ def _run_generated_source(
     verified_dot: _VerifiedDot,
 ) -> subprocess.CompletedProcess:
     _verify_dot_snapshot(verified_dot)
-    command = [sys.executable, "diagram.py"]
+    command = [sys.executable, "-I", "diagram.py"]
     arguments = {
         "cwd": stage,
         "env": _minimal_environment(base_environment, verified_dot),
@@ -631,6 +639,9 @@ def _verify_dot_snapshot(verified_dot: _VerifiedDot) -> None:
         raise BundleBuildError(
             "Graphviz dot changed after preflight; refusing to spawn the renderer"
         )
+    trust_failure = _posix_dot_trust_failure(verified_dot.path)
+    if trust_failure is not None:
+        raise BundleBuildError(trust_failure)
 
 
 def _run_process_group(

@@ -3,15 +3,50 @@
 
 from __future__ import annotations
 
+import sys
+
+
+# Every supported command starts with read-only inspection.  Keep imports from
+# mutating the installed skill package before the user approves any output.
+sys.dont_write_bytecode = True
+
+
+if __name__ == "__main__" and not sys.flags.isolated:
+    sys.stderr.write(
+        "diagram-grill: Python isolated mode is required.\n"
+        "Run: /absolute/path/to/trusted/python -I "
+        "/absolute/path/to/diagram_grill_cli.py <command> [options]\n"
+    )
+    raise SystemExit(2)
+
+
 import argparse
 import json
 import math
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
+
+if __name__ == "__main__":
+    _cli_path = Path(__file__)
+    if not _cli_path.is_absolute():
+        sys.stderr.write(
+            "diagram-grill: an absolute CLI script path is required.\n"
+            "Run: /absolute/path/to/trusted/python -I "
+            "/absolute/path/to/diagram_grill_cli.py <command> [options]\n"
+        )
+        raise SystemExit(2)
+    # Isolated mode intentionally omits the script directory from sys.path.
+    # Add only the canonical directory containing this trusted skill package.
+    sys.path.insert(0, str(_cli_path.resolve(strict=True).parent))
+
+
 from diagram_grill.errors import DiagramValidationError, ValidationIssue
 from diagram_grill.preflight import run_preflight
+
+
+_SKILL_ROOT = Path(__file__).resolve(strict=True).parents[1]
+_PYTHON_EXECUTABLE = Path(sys.executable).resolve(strict=True)
 
 
 MAX_STDIN_SPEC_BYTES = 1024 * 1024
@@ -150,6 +185,48 @@ def _report_failure(error: Exception, json_output: bool) -> int:
     else:
         print("diagram-grill: {}".format(error), file=sys.stderr)
     return 1
+
+
+def _paths_overlap(first: Path, second: Path) -> bool:
+    if first == second or first in second.parents or second in first.parents:
+        return True
+    for component in (second,) + tuple(second.parents):
+        try:
+            if first.samefile(component):
+                return True
+        except FileNotFoundError:
+            continue
+    for component in (first,) + tuple(first.parents):
+        try:
+            if second.samefile(component):
+                return True
+        except FileNotFoundError:
+            continue
+    return False
+
+
+def _require_external_skill_install(args: argparse.Namespace) -> None:
+    target = None
+    if args.command == "evidence":
+        target = args.repo
+    elif args.command == "build":
+        target = args.workspace
+    if target is None:
+        return
+
+    canonical_target = Path(target).resolve(strict=False)
+    if _paths_overlap(_SKILL_ROOT, canonical_target):
+        raise RuntimeError(
+            "Refusing an installed skill path that overlaps the target {}: {}. "
+            "Install diagram-grill globally with --copy outside the target "
+            "repository and workspace.".format(args.command, _SKILL_ROOT)
+        )
+    if _paths_overlap(_PYTHON_EXECUTABLE, canonical_target):
+        raise RuntimeError(
+            "Refusing a Python interpreter that overlaps the target {}: {}. "
+            "Use a trusted absolute interpreter outside the target repository "
+            "and workspace.".format(args.command, _PYTHON_EXECUTABLE)
+        )
 
 
 def _check_payload(check: Any) -> Dict[str, Any]:
@@ -495,6 +572,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = create_parser()
     args = parser.parse_args(argv)
     try:
+        _require_external_skill_install(args)
         return int(args.handler(args))
     except _OPERATIONAL_ERRORS as error:
         return _report_failure(error, bool(getattr(args, "json", False)))

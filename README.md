@@ -28,8 +28,19 @@ published.
   [`skills/diagram-grill/requirements.lock`](skills/diagram-grill/requirements.lock)
   (including `diagrams==0.25.1` and `graphviz==0.20.3`)
 
-The future `npx skills add wlgusqkr/diagram-grill` command installs the Agent
-Skill files; it does not install Python or Graphviz.
+## Install
+
+After the first public tag, install a copied global skill:
+
+```sh
+npx skills add wlgusqkr/diagram-grill --skill diagram-grill --global --copy
+```
+
+Project-local installs are unsupported. Keep the canonical installed skill
+directory outside every target repository and workspace so repository content
+cannot replace the instructions or renderer. The CLI refuses overlapping
+paths. This command installs only the Agent Skill files; it does not install
+Python or Graphviz.
 
 ## License
 

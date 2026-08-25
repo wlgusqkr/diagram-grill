@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import importlib.util
 import json
 import os
 import signal
@@ -13,23 +12,17 @@ from types import SimpleNamespace
 from unittest import mock
 
 
-MODULE_PATH = (
+SCRIPTS_ROOT = (
     Path(__file__).resolve().parents[1]
     / "skills"
     / "diagram-grill"
     / "scripts"
-    / "diagram_grill"
-    / "renderer.py"
 )
-MODULE_SPEC = importlib.util.spec_from_file_location(
-    "diagram_grill_renderer_test_target",
-    MODULE_PATH,
-)
-if MODULE_SPEC is None or MODULE_SPEC.loader is None:
-    raise RuntimeError("Could not load renderer module from {}".format(MODULE_PATH))
-RENDERER = importlib.util.module_from_spec(MODULE_SPEC)
-sys.modules[MODULE_SPEC.name] = RENDERER
-MODULE_SPEC.loader.exec_module(RENDERER)
+sys.path.insert(0, str(SCRIPTS_ROOT))
+try:
+    from diagram_grill import renderer as RENDERER
+finally:
+    sys.path.remove(str(SCRIPTS_ROOT))
 
 
 VALID_SVG = b'<svg xmlns="http://www.w3.org/2000/svg"><text>ok</text></svg>\n'
@@ -506,7 +499,7 @@ class RendererTests(unittest.TestCase):
         )
 
         self.assertTrue(target.is_dir())
-        self.assertEqual([sys.executable, "diagram.py"], capture["command"])
+        self.assertEqual([sys.executable, "-I", "diagram.py"], capture["command"])
         kwargs = capture["kwargs"]
         self.assertFalse(kwargs["shell"])
         self.assertTrue(kwargs["capture_output"])
@@ -520,7 +513,7 @@ class RendererTests(unittest.TestCase):
         self.assertEqual("0", kwargs["env"]["PYTHONHASHSEED"])
         self.assertEqual("1", kwargs["env"]["PYTHONNOUSERSITE"])
         self.assertEqual("1", kwargs["env"]["PYTHONUTF8"])
-        self.assertEqual("diagram.py", capture["command"][1])
+        self.assertEqual("diagram.py", capture["command"][2])
 
     def test_in_place_dot_mutation_before_spawn_fails_closed(self):
         runner = mock.Mock()
@@ -535,6 +528,43 @@ class RendererTests(unittest.TestCase):
 
         runner.assert_not_called()
         self.assertFalse((self.workspace / "diagrams" / "example").exists())
+
+    def test_dot_trust_is_rechecked_after_snapshot_before_spawn(self):
+        identity, sha256 = RENDERER._capture_executable(self.dot_path)
+        verified_dot = RENDERER._VerifiedDot(self.dot_path, identity, sha256)
+        runner = mock.Mock()
+
+        with mock.patch.object(
+            RENDERER,
+            "_posix_dot_trust_failure",
+            side_effect=(None, "Graphviz path trust changed before spawn"),
+        ) as trust_check:
+            with self.assertRaisesRegex(
+                RENDERER.BundleBuildError,
+                "trust changed before spawn",
+            ):
+                RENDERER._run_generated_source(
+                    runner,
+                    self.workspace,
+                    1.0,
+                    {},
+                    verified_dot,
+                )
+
+        self.assertEqual(2, trust_check.call_count)
+        runner.assert_not_called()
+
+    def test_workspace_cannot_overlap_the_installed_skill(self):
+        with mock.patch.object(
+            RENDERER,
+            "_SKILL_ROOT",
+            self.workspace.resolve().parent,
+        ):
+            with self.assertRaisesRegex(
+                RENDERER.BundleBuildError,
+                "Installed skill path overlaps the target workspace",
+            ):
+                self.build()
 
     def test_dot_symlink_swap_before_spawn_fails_closed(self):
         runner = mock.Mock()
@@ -685,7 +715,7 @@ class RendererTests(unittest.TestCase):
         process = mock.Mock()
         process.pid = 43210
         process.communicate.side_effect = [
-            subprocess.TimeoutExpired([sys.executable, "diagram.py"], 0.1),
+            subprocess.TimeoutExpired([sys.executable, "-I", "diagram.py"], 0.1),
             ("partial output", ""),
         ]
         process.wait.side_effect = subprocess.TimeoutExpired("wait", 0.25)
@@ -695,7 +725,7 @@ class RendererTests(unittest.TestCase):
             with mock.patch.object(RENDERER.os, "killpg") as killpg:
                 with self.assertRaises(subprocess.TimeoutExpired):
                     RENDERER._run_process_group(
-                        [sys.executable, "diagram.py"],
+                        [sys.executable, "-I", "diagram.py"],
                         cwd=self.workspace,
                         env={"PATH": str(self.dot_path.parent)},
                         timeout=0.1,
@@ -716,9 +746,9 @@ class RendererTests(unittest.TestCase):
         process = mock.Mock()
         process.pid = 43211
         process.communicate.side_effect = [
-            subprocess.TimeoutExpired([sys.executable, "diagram.py"], 0.1),
+            subprocess.TimeoutExpired([sys.executable, "-I", "diagram.py"], 0.1),
             subprocess.TimeoutExpired(
-                [sys.executable, "diagram.py"],
+                [sys.executable, "-I", "diagram.py"],
                 RENDERER._TERMINATION_GRACE_SECONDS,
                 output="partial",
                 stderr="held",
@@ -731,7 +761,7 @@ class RendererTests(unittest.TestCase):
             with mock.patch.object(RENDERER.os, "killpg"):
                 with self.assertRaises(subprocess.TimeoutExpired) as caught:
                     RENDERER._run_process_group(
-                        [sys.executable, "diagram.py"],
+                        [sys.executable, "-I", "diagram.py"],
                         cwd=self.workspace,
                         env={"PATH": str(self.dot_path.parent)},
                         timeout=0.1,

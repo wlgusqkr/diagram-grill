@@ -75,6 +75,8 @@ class SkillEntrypointContractTests(ContractAssertionsMixin, unittest.TestCase):
             "Never pass `--update` unless the user explicitly asked",
             "build -",
             "without creating a separate input file",
+            "Use only a copied global installation",
+            "paths overlap in either direction",
             "does not authorize SQS, Stripe, Azure, GCP, or another branded stand-in",
             "Do not turn a stand-in icon into an approvable assumption",
         )
@@ -187,6 +189,7 @@ class WorkflowReferenceContractTests(ContractAssertionsMixin, unittest.TestCase)
             "diagrams.<provider>.<category>.<Class>",
             "diagrams.generic.blank.Blank",
             "Never choose a merely similar provider icon",
+            "Project-local or repository-backed skill installations are unsupported",
             "names that exact product",
             "including through an assumption",
             "There is no user-selectable theme",

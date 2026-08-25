@@ -2,8 +2,11 @@ import contextlib
 import copy
 import io
 import json
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,6 +24,7 @@ from diagram_grill.renderer import BundleBuildError  # noqa: E402
 
 
 FIXTURE_PATH = REPOSITORY_ROOT / "tests" / "fixtures" / "specs" / "valid.json"
+CLI_PATH = (SKILL_ROOT / "scripts" / "diagram_grill_cli.py").resolve()
 
 
 def fixture_spec():
@@ -40,8 +44,9 @@ class PreflightCommandTests(unittest.TestCase):
     def test_preflight_reports_missing_dependencies_without_import_traceback(self):
         command = [
             sys.executable,
+            "-I",
             "-S",
-            str(SKILL_ROOT / "scripts" / "diagram_grill_cli.py"),
+            str(CLI_PATH),
             "preflight",
             "--json",
         ]
@@ -100,6 +105,152 @@ class PreflightCommandTests(unittest.TestCase):
         self.assertEqual("", stdout)
         self.assertIn("Preflight failed", stderr)
         self.assertIn("Graphviz dot is missing", stderr)
+
+
+class IsolatedEntrypointTests(unittest.TestCase):
+    def test_supported_invocation_does_not_write_bytecode_into_skill_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            copied_skill = Path(directory) / "diagram-grill"
+            shutil.copytree(
+                SKILL_ROOT,
+                copied_skill,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            )
+            copied_cli = (copied_skill / "scripts" / "diagram_grill_cli.py").resolve()
+
+            completed = subprocess.run(
+                [sys.executable, "-I", str(copied_cli), "--help"],
+                cwd=directory,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertEqual([], list(copied_skill.rglob("__pycache__")))
+            self.assertEqual([], list(copied_skill.rglob("*.pyc")))
+
+    def test_supported_invocation_ignores_pythonpath_json_and_sitecustomize(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload_root = Path(directory)
+            marker = payload_root / "executed.txt"
+            payload = (
+                "with open({!r}, 'a', encoding='utf-8') as marker:\n"
+                "    marker.write({!r})\n"
+            )
+            (payload_root / "json.py").write_text(
+                payload.format(str(marker), "json\n"), encoding="utf-8"
+            )
+            (payload_root / "sitecustomize.py").write_text(
+                payload.format(str(marker), "sitecustomize\n"), encoding="utf-8"
+            )
+            environment = os.environ.copy()
+            environment["PYTHONPATH"] = str(payload_root)
+
+            completed = subprocess.run(
+                [sys.executable, "-I", str(CLI_PATH), "--help"],
+                cwd=directory,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertIn("Validate and render approved", completed.stdout)
+            self.assertEqual("", completed.stderr)
+            self.assertFalse(marker.exists())
+
+    def test_target_repository_cannot_contain_the_installed_skill(self):
+        status, stdout, stderr = invoke(
+            ["evidence", "--repo", str(REPOSITORY_ROOT), "README.md"]
+        )
+
+        self.assertEqual(1, status)
+        self.assertEqual("", stdout)
+        self.assertIn("overlaps the target evidence", stderr)
+        self.assertIn("globally with --copy", stderr)
+
+    def test_installed_skill_cannot_contain_the_target_workspace(self):
+        target = SKILL_ROOT / "nested-workspace"
+        with mock.patch.object(cli, "_SKILL_ROOT", SKILL_ROOT.resolve()):
+            status, stdout, stderr = invoke(
+                ["build", "-", "--workspace", str(target)]
+            )
+
+        self.assertEqual(1, status)
+        self.assertEqual("", stdout)
+        self.assertIn("overlaps the target build", stderr)
+
+    def test_repository_local_python_interpreter_is_rejected(self):
+        with mock.patch.object(
+            cli,
+            "_SKILL_ROOT",
+            Path("/trusted-global-agent-skills/diagram-grill"),
+        ):
+            with mock.patch.object(
+                cli,
+                "_PYTHON_EXECUTABLE",
+                REPOSITORY_ROOT / ".venv" / "bin" / "python",
+            ):
+                status, stdout, stderr = invoke(
+                    ["evidence", "--repo", str(REPOSITORY_ROOT), "README.md"]
+                )
+
+        self.assertEqual(1, status)
+        self.assertEqual("", stdout)
+        self.assertIn("Python interpreter that overlaps", stderr)
+        self.assertIn("outside the target repository", stderr)
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS path alias integration only")
+    def test_case_variant_alias_cannot_bypass_the_install_boundary(self):
+        repository_alias = Path(
+            str(REPOSITORY_ROOT).replace("/Users/", "/users/", 1)
+        )
+        if not repository_alias.exists() or not REPOSITORY_ROOT.samefile(
+            repository_alias
+        ):
+            self.skipTest("workspace filesystem is case-sensitive")
+
+        status, stdout, stderr = invoke(
+            ["evidence", "--repo", str(repository_alias), "README.md"]
+        )
+
+        self.assertEqual(1, status)
+        self.assertEqual("", stdout)
+        self.assertIn("overlaps the target evidence", stderr)
+
+    def test_nonisolated_execution_fails_before_application_imports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload_root = Path(directory)
+            marker = payload_root / "json-imported.txt"
+            (payload_root / "json.py").write_text(
+                "open({!r}, 'w', encoding='utf-8').write('executed')\n".format(
+                    str(marker)
+                ),
+                encoding="utf-8",
+            )
+            environment = os.environ.copy()
+            environment["PYTHONPATH"] = str(payload_root)
+
+            completed = subprocess.run(
+                [sys.executable, str(CLI_PATH), "--help"],
+                cwd=directory,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(2, completed.returncode)
+            self.assertEqual("", completed.stdout)
+            self.assertIn("Python isolated mode is required", completed.stderr)
+            self.assertIn(
+                "/absolute/path/to/trusted/python -I /absolute/path/",
+                completed.stderr,
+            )
+            self.assertNotIn("Traceback", completed.stderr)
+            self.assertFalse(marker.exists())
 
 
 class CatalogCommandTests(unittest.TestCase):
@@ -213,6 +364,15 @@ class ValidateAndBriefCommandTests(unittest.TestCase):
 
 
 class BuildCommandTests(unittest.TestCase):
+    def setUp(self):
+        self.skill_root_patch = mock.patch.object(
+            cli,
+            "_SKILL_ROOT",
+            Path("/trusted-global-agent-skills/diagram-grill"),
+        )
+        self.skill_root_patch.start()
+        self.addCleanup(self.skill_root_patch.stop)
+
     def test_build_reads_approved_json_from_stdin_without_an_input_path(self):
         bundle = Path("/workspace/diagrams/checkout-architecture")
         stdin = io.StringIO(json.dumps(fixture_spec()))
