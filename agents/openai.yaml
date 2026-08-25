@@ -1,0 +1,7 @@
+interface:
+  display_name: "Diagram Grill"
+  short_description: "Clarify architecture decisions, then draw"
+  default_prompt: "Use $diagram-grill to inspect this repository, resolve missing architecture decisions, and render an approved diagram."
+policy:
+  allow_implicit_invocation: false
+
