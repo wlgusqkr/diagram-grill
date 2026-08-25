@@ -78,7 +78,8 @@ class CompilerTests(unittest.TestCase):
 
         compiled = compile_spec(spec, node_resolver=accepting_resolver)
 
-        self.assertIn("[generic: Acme payment appliance]", compiled.source)
+        self.assertIn("[generic icon]", compiled.source)
+        self.assertNotIn("[generic: Acme payment appliance]", compiled.source)
         self.assertEqual(1, len(compiled.warnings))
         self.assertIn("Acme payment appliance", compiled.warnings[0])
 

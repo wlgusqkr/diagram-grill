@@ -135,8 +135,8 @@ catalog path in the form `diagrams.<provider>.<category>.<Class>`.
 
 When no verified provider icon exists, use only
 `diagrams.generic.blank.Blank`. Record `icon_fallback_for`, add a visible
-`[generic: ...]` node annotation, and include the warning in the render
-manifest. Never choose a merely similar provider icon.
+`[generic icon]` node annotation, and preserve the full replacement name in
+the render-manifest warning. Never choose a merely similar provider icon.
 
 Create the bundle under `diagrams/<slug>/` with:
 

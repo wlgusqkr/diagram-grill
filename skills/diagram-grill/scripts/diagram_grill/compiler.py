@@ -100,7 +100,7 @@ def _node_label(node: Mapping[str, Any]) -> str:
     label = str(node["label"])
     fallback_for = node.get("icon_fallback_for")
     if isinstance(fallback_for, str):
-        label += "\n[generic: {}]".format(fallback_for)
+        label += "\n[generic icon]"
     return label
 
 
