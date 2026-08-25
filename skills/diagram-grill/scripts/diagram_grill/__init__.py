@@ -1,20 +1,9 @@
-"""Validated architecture IR tooling for Diagram Grill."""
+"""Validated architecture IR tooling for Diagram Grill.
+
+Runtime modules are intentionally not imported here. This keeps the read-only
+preflight command usable before optional Python dependencies are installed.
+"""
 
 from .errors import DiagramValidationError, ValidationIssue
-from .validation import (
-    MAX_GROUP_DEPTH,
-    SCHEMA_VERSION,
-    collect_validation_issues,
-    load_and_validate,
-    validate_spec,
-)
 
-__all__ = [
-    "DiagramValidationError",
-    "MAX_GROUP_DEPTH",
-    "SCHEMA_VERSION",
-    "ValidationIssue",
-    "collect_validation_issues",
-    "load_and_validate",
-    "validate_spec",
-]
+__all__ = ["DiagramValidationError", "ValidationIssue"]

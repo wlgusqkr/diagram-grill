@@ -2,6 +2,7 @@ import contextlib
 import copy
 import io
 import json
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -36,6 +37,26 @@ def invoke(arguments):
 
 
 class PreflightCommandTests(unittest.TestCase):
+    def test_preflight_reports_missing_dependencies_without_import_traceback(self):
+        command = [
+            sys.executable,
+            "-S",
+            str(SKILL_ROOT / "scripts" / "diagram_grill_cli.py"),
+            "preflight",
+            "--json",
+        ]
+
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+
+        self.assertEqual(1, completed.returncode)
+        self.assertEqual("", completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(
+            ["python", "diagrams", "jsonschema", "graphviz_python", "dot"],
+            [check["name"] for check in payload["checks"]],
+        )
+
     def test_preflight_json_reports_structured_checks(self):
         result = SimpleNamespace(
             ok=True,

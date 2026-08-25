@@ -10,11 +10,26 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
-from diagram_grill.catalog import NodeCatalogError, search_node_catalog
 from diagram_grill.errors import DiagramValidationError, ValidationIssue
 from diagram_grill.preflight import run_preflight
-from diagram_grill.renderer import BundleBuildError, build_bundle
-from diagram_grill.validation import load_and_validate
+
+
+def search_node_catalog(*args: Any, **kwargs: Any) -> Any:
+    from diagram_grill.catalog import search_node_catalog as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def load_and_validate(*args: Any, **kwargs: Any) -> Any:
+    from diagram_grill.validation import load_and_validate as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def build_bundle(*args: Any, **kwargs: Any) -> Any:
+    from diagram_grill.renderer import build_bundle as implementation
+
+    return implementation(*args, **kwargs)
 
 
 def _positive_int(value: str) -> int:
@@ -403,11 +418,10 @@ def _command_build(args: argparse.Namespace) -> int:
 
 
 _OPERATIONAL_ERRORS = (
-    BundleBuildError,
     DiagramValidationError,
-    NodeCatalogError,
     json.JSONDecodeError,
     OSError,
+    RuntimeError,
 )
 
 
