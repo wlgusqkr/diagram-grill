@@ -1,0 +1,10 @@
+*
+!Dockerfile.codex
+!Dockerfile.proxy
+!responses_proxy.py
+!runtime/
+runtime/*
+!runtime/bwrap-wrapper.sh
+!runtime/snapshot_export.py
+!runtime/snapshot_import.py
+!runtime/supervisor.py
