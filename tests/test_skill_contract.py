@@ -75,6 +75,8 @@ class SkillEntrypointContractTests(ContractAssertionsMixin, unittest.TestCase):
             "Never pass `--update` unless the user explicitly asked",
             "build -",
             "without creating a separate input file",
+            "does not authorize SQS, Stripe, Azure, GCP, or another branded stand-in",
+            "Do not turn a stand-in icon into an approvable assumption",
         )
 
     def test_skill_links_all_supporting_references_and_links_resolve(self):
@@ -185,6 +187,8 @@ class WorkflowReferenceContractTests(ContractAssertionsMixin, unittest.TestCase)
             "diagrams.<provider>.<category>.<Class>",
             "diagrams.generic.blank.Blank",
             "Never choose a merely similar provider icon",
+            "names that exact product",
+            "including through an assumption",
             "There is no user-selectable theme",
             "diagram.svg",
             "render-manifest.json",
@@ -282,6 +286,7 @@ class ArchitectureBriefContractTests(ContractAssertionsMixin, unittest.TestCase)
             "bundle outputs only under diagrams/<slug>/",
             "preserve a user override",
             "agent-selected direction may switch LR to TB or TB to LR",
+            "Never propose a branded icon as a provider-neutral stand-in or assumption",
         )
 
     def test_approval_phrase_and_reapproval_boundary_are_exact(self):
@@ -326,6 +331,8 @@ class SecurityReferenceContractTests(ContractAssertionsMixin, unittest.TestCase)
             "diagrams.custom.Custom",
             "diagrams.generic.blank.Blank",
             "Do not auto-install",
+            "Treat branded icon selection as an architecture claim",
+            "never approve a branded icon as a neutral stand-in",
         )
 
     def test_evidence_filesystem_and_secret_boundaries_are_explicit(self):

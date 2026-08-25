@@ -36,9 +36,12 @@ boundary.
 Node `status` distinguishes `observed`, `user-approved`, `inferred`, and
 `unknown`. It records provenance; it is not a visual theme.
 
-`icon` must be an exact path returned by the pinned catalog. For an unavailable
-service icon, use `diagrams.generic.blank.Blank` and set `icon_fallback_for` to
-the service it replaces. The compiler makes this fallback visible.
+`icon` must be an exact path returned by the pinned catalog. A branded icon
+requires evidence or an approved decision naming that exact product; a generic
+concept and an assumption that the icon is merely representative are not
+sufficient. When an exact icon or exact vendor/product is unavailable, use
+`diagrams.generic.blank.Blank` and set `icon_fallback_for` to the service it
+replaces. The compiler makes this fallback visible.
 
 ## Connections
 

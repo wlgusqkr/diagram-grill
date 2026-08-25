@@ -73,6 +73,9 @@ compromised local runtime is outside the guarantees of this skill.
 - Do not call cloud APIs, query live clusters, access SaaS editors, or send
   repository content to a remote renderer.
 - Use only icons bundled with the pinned local `diagrams` installation.
+- Treat branded icon selection as an architecture claim. Use a vendor, cloud,
+  SaaS, or named-product icon only when evidence or an approved decision names
+  that exact product; never approve a branded icon as a neutral stand-in.
 - If no exact icon exists, use only `diagrams.generic.blank.Blank`, visibly
   label what it replaces, and record the warning in the manifest.
 

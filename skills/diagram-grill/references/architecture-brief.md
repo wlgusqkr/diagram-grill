@@ -54,6 +54,10 @@ Generic fallbacks:
 | --- | --- | --- | --- |
 | <node-id> | <requested product or concept> | diagrams.generic.blank.Blank | <why no exact catalog entry exists> |
 
+A branded vendor, cloud, SaaS, or named-product icon requires an evidence ref
+or user decision that names that exact product. Never propose a branded icon as
+a provider-neutral stand-in or assumption. Use the Generic Blank row instead.
+
 ## Typed connections
 
 | ID | From | To | Type | Label | Evidence |

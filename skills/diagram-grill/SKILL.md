@@ -121,10 +121,14 @@ Resolve every icon against the pinned local catalog:
 python3 <skill-directory>/scripts/diagram_grill_cli.py catalog "<service>" --provider <provider>
 ```
 
-Never invent or fuzzy-substitute an import path. If there is no suitable
-provider icon, use exactly `diagrams.generic.blank.Blank`, set
-`icon_fallback_for`, and preserve the visible warning. Never use
-`diagrams.custom`.
+Never invent or fuzzy-substitute an import path. A vendor, cloud, SaaS, or
+named-product icon is permitted only when observed evidence or a user-approved
+architecture decision names that exact vendor and product. A provider-neutral
+concept such as “managed queue” or “payment provider” does not authorize SQS,
+Stripe, Azure, GCP, or another branded stand-in. Do not turn a stand-in icon
+into an approvable assumption. If the exact product is unconfirmed, use exactly
+`diagrams.generic.blank.Blank`, set `icon_fallback_for`, and preserve the
+visible warning. Never use `diagrams.custom`.
 
 ### 6. Build without silent overwrites
 

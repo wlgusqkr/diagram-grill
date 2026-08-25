@@ -16,6 +16,9 @@ sequence diagrams, UML, organization charts, or general-purpose flowcharts.
 - Include a recommendation and its main tradeoff with every question.
 - Use only exact entries from the installed `diagrams==0.25.1` catalog. Never
   guess a provider icon.
+- Use a branded vendor, cloud, SaaS, or named-product icon only when evidence or
+  an approved decision names that exact product. Generic concepts never
+  authorize branded stand-ins, including through an assumption.
 - Use fixed rendering defaults. There is no user-selectable theme.
 - Never download remote icons, execute repository-provided code, or install
   Python, Graphviz, packages, or operating-system dependencies automatically.
@@ -147,7 +150,9 @@ remaining `unresolved` assumption.
 When no verified provider icon exists, use only
 `diagrams.generic.blank.Blank`. Record `icon_fallback_for`, add a visible
 `[generic icon]` node annotation, and preserve the full replacement name in
-the render-manifest warning. Never choose a merely similar provider icon.
+the render-manifest warning. Never choose a merely similar provider icon. An
+assumption that a branded icon is “representative” or “does not imply the
+vendor” is invalid and must not appear in a brief or render IR.
 
 Create the bundle under `diagrams/<slug>/` with:
 
