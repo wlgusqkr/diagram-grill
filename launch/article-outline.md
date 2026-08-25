@@ -29,7 +29,7 @@ installs the project.
 2. **Design goals and non-goals**
    - Cloud and software-system architecture only.
    - Explicit invocation, no theme interview, no general UML replacement.
-   - Reproducible artifacts rather than a one-off image response.
+   - Versioned, reviewable artifacts rather than a one-off image response.
 3. **The workflow**
    - Permissioned read-only evidence inspection.
    - Unresolved-decision interview.
@@ -60,7 +60,7 @@ installs the project.
    - Include this section only after all records are reviewed.
    - Publish the complete metric table, raw-data link, and limitations.
    - Explain at least one failure from each relevant condition.
-9. **A reproducible walkthrough**
+9. **A version-pinned walkthrough**
    - Exact release, prerequisites, install command, copyable prompt, and output
      bundle.
    - Use a public sample without exposing evaluation oracles to an active run.

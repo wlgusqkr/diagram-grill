@@ -15,7 +15,7 @@ evidence does not exist or cannot be shared, remove the claim.
 | Security property | Specific test and threat-boundary documentation | `Designed to...` with the boundary | Absence of a reported incident |
 | Client compatibility | End-to-end run with client version, model, prompt, transcript, and artifacts | Omit the client | Shared Agent Skills syntax |
 | Baseline comparison | Complete paired protocol, reviewed records, and public metric definitions | Describe the protocol only | One selected anecdote |
-| Success percentage | Complete planned matrix and reproducible aggregate | Publish no percentage | Partial runs or excluded failures |
+| Success percentage | Complete planned matrix and reviewable aggregate from the versioned harness | Publish no percentage | Partial runs or excluded failures |
 | Before/After demo | Actual retained baseline failure and paired skill run | No comparison asset | A staged or reconstructed output |
 | Visual quality | Retained PNG plus recorded visual review | State that visual QA was unavailable | Successful SVG generation |
 | OSS evaluation | Pinned checkout, retained run, license compliance, and reviewed result | `Three OSS cases are defined for future evaluation.` | Metadata pins alone |

@@ -1,7 +1,7 @@
 # Prelaunch evaluation fixtures
 
 This directory defines 12 fixed architecture cases for comparing a general
-agent with the full Diagram Grill workflow. It contains inputs and human-made
+agent with the full Diagram Grill workflow. It contains inputs and fixed review
 oracles only. It does not contain evaluation results or performance claims.
 
 Each fixture has:

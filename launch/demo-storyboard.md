@@ -32,10 +32,10 @@ the demo and the launch asset.
 | 11–16s | Real unresolved question, answer, and Architecture Brief | `Resolve decisions. Approve the brief.` | Unedited question, fixed operator answer, approval record |
 | 16–21s | Validator/build command and bundle files appearing | `Validate, then render.` | Actual stdout, exit status, and retained bundle |
 | 21–26s | Baseline and skill artifacts side by side with one factual highlight | `[REVIEWED DIFFERENCE]` | Paired artifacts and reviewer note |
-| 26–30s | Public install command and repository URL | `Open source. Reproduce the run.` | Signed-out install test against exact release |
+| 26–30s | Public install command and repository URL | `Open source. Inspect the evidence.` | Signed-out install test against exact release |
 
 Shorten the middle shots if the final asset is 20 seconds. Do not remove the
-baseline evidence, approval moment, or final reproducibility cue.
+baseline evidence, approval moment, or final evidence cue.
 
 ## Editing rules
 

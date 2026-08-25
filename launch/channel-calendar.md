@@ -15,7 +15,7 @@ slot, not authorization to publish. Skip a slot if its gate is incomplete.
   aggregate until the complete 24-run matrix passes the harness completeness
   gate.
 - Identify a real baseline failure suitable for the demo. Use it only if the
-  paired skill run is also retained and independently reviewed.
+  paired skill run is also retained and reviewed under the fixed protocol.
 - Run one representative end-to-end prompt in each client that may be named
   publicly. Omit every unverified client from launch copy.
 - Confirm that the public repository contains no secrets, private paths,

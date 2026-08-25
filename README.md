@@ -4,8 +4,8 @@
 
 `diagram-grill` is an open-source Agent Skill for cloud and software-system
 architecture. It inspects repository evidence, asks about decisions that code
-cannot answer, and turns an approved architecture brief into a reproducible
-diagram-as-code bundle powered by
+cannot answer, and turns an approved architecture brief into a versioned,
+reviewable diagram-as-code bundle powered by
 [`mingrammer/diagrams`](https://github.com/mingrammer/diagrams).
 
 The repository is under active public-alpha development. Compatibility and
