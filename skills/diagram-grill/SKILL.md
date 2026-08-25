@@ -100,11 +100,20 @@ Do not create or modify any diagram file, temporary spec, or output directory
 before the user explicitly approves this specific brief. Silence, a previous
 general approval, or approval of a different brief is not approval.
 
+Every assumption proposed for this render must be visible in the brief. The
+exact approval phrase approves those listed assumptions together with the
+topology. Do not request approval while a blocking unknown remains.
+
 ### 5. Create the constrained IR after approval
 
 After approval, create schema-version `1.0` JSON in a temporary file. Use
 [references/diagram.schema.json](references/diagram.schema.json) as the
 contract and [references/ir.md](references/ir.md) as the field guide.
+
+Encode every assumption explicitly listed in the approved brief as
+`user-approved`. Render-mode IR must contain no `unresolved` assumption. Do
+not add a new assumption after approval; revise the brief and request fresh
+approval if one is needed.
 
 Resolve every icon against the pinned local catalog:
 

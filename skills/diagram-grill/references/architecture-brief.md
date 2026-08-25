@@ -80,7 +80,7 @@ File evidence maps to `kind`, `path`, optional `line_start`, and optional
 
 | ID | Statement | Status | Evidence |
 | --- | --- | --- | --- |
-| <assumption-id> | <bounded assumption> | unresolved / user-approved / rejected | <evidence refs> |
+| <assumption-id> | <bounded assumption> | pending brief approval / user-approved / rejected | <evidence refs> |
 
 ## Unknowns
 
@@ -116,7 +116,12 @@ exact revision, reply exactly:
   to "show a draft image" is not approval of the current brief.
 - Record approval in `diagram.json` only after the explicit approval phrase.
 - Approval covers only the listed views, topology, labels, evidence, output
-  path, and artifacts.
+  path, artifacts, and assumptions.
+- The exact approval phrase changes every `pending brief approval` assumption
+  listed in this revision to `user-approved` in `diagram.json`. Render-mode IR
+  must contain no `unresolved` assumption. Never add an assumption after
+  approval; revise the brief and request approval again instead.
+- Do not request approval while an unknown marked `Blocking? yes` remains.
 - One layout-only retry may use the existing approval. It must preserve a
   user-overridden direction; only an agent-selected direction may switch
   `LR` to `TB` or `TB` to `LR`.

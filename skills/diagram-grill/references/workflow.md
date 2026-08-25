@@ -122,6 +122,12 @@ revision and cover scope, direction, groups, nodes, typed connections,
 structured evidence, user decisions, assumptions, unknowns, and the render
 plan. Show all visible Generic fallback warnings before approval.
 
+List every proposed assumption explicitly. The exact approval phrase approves
+those assumptions as part of the current brief, so encode them as
+`user-approved` in the render IR. Never carry an `unresolved` assumption into
+render mode, invent an assumption after approval, or request approval while a
+blocking unknown remains.
+
 Do not write artifacts while drafting or revising the brief. Rendering is
 authorized only after the user explicitly approves the current brief with the
 approval phrase. Any later topology, grouping, node, connection type, or label
@@ -132,6 +138,11 @@ change invalidates that approval and requires a revised brief and new approval.
 Translate the approved brief into the constrained IR defined by
 [diagram.schema.json](diagram.schema.json). Every node icon must be an exact
 catalog path in the form `diagrams.<provider>.<category>.<Class>`.
+
+Before validation, map each assumption listed in the approved brief to
+`user-approved`. If an assumption was not listed, stop and revise the brief;
+do not insert it into the IR. Render validation intentionally rejects every
+remaining `unresolved` assumption.
 
 When no verified provider icon exists, use only
 `diagrams.generic.blank.Blank`. Record `icon_fallback_for`, add a visible

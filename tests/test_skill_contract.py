@@ -203,6 +203,15 @@ class WorkflowReferenceContractTests(ContractAssertionsMixin, unittest.TestCase)
             "Do not enter an open-ended render loop",
         )
 
+    def test_approved_assumptions_are_resolved_before_render(self):
+        self.assert_contains_terms(
+            self.workflow,
+            "encode them as `user-approved` in the render IR",
+            "Never carry an `unresolved` assumption into render mode",
+            "blocking unknown remains",
+            "Render validation intentionally rejects",
+        )
+
     def test_prohibited_external_actions_are_explicit(self):
         self.assert_contains_terms(
             self.workflow,
@@ -277,6 +286,13 @@ class ArchitectureBriefContractTests(ContractAssertionsMixin, unittest.TestCase)
             "No diagram artifact has been written",
             "`I approve this Architecture Brief for rendering.`",
             "requires a new revision and new approval",
+        )
+        self.assert_contains_terms(
+            self.brief,
+            "pending brief approval",
+            "changes every `pending brief approval` assumption",
+            "Render-mode IR must contain no `unresolved` assumption",
+            "Blocking? yes",
         )
 
 
