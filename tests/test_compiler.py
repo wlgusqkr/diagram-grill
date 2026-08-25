@@ -44,9 +44,9 @@ class CompilerTests(unittest.TestCase):
             valid_spec(), node_resolver=accepting_resolver
         ).source
 
-        self.assertIn("        with Cluster('Cloud'", source)
-        self.assertIn("            with Cluster('Production'", source)
-        self.assertIn("                with Cluster('Services'", source)
+        self.assertIn("        with Cluster(escape('Cloud')", source)
+        self.assertIn("            with Cluster(escape('Production')", source)
+        self.assertIn("                with Cluster(escape('Services')", source)
 
     def test_uses_fixed_non_theme_edge_semantics(self):
         spec = valid_spec()
@@ -91,16 +91,26 @@ class CompilerTests(unittest.TestCase):
             ["diagrams.aws.compute.ECS", "diagrams.aws.database.RDS"], calls
         )
 
-    def test_user_text_is_only_emitted_as_a_string_literal(self):
+    def test_every_user_label_is_a_graphviz_escaped_string_literal(self):
         spec = valid_spec()
-        spec["title"] = "'); __import__('os').system('false') #"
-        spec["nodes"][0]["label"] = "\"; raise RuntimeError('injected')"
+        payload = (
+            '<<TABLE><TR><TD HREF="javascript:alert(1)">click</TD>'
+            '</TR></TABLE>>'
+        )
+        spec["title"] = payload
+        spec["groups"][0]["label"] = payload
+        spec["nodes"][0]["label"] = payload
+        spec["edges"][0]["label"] = payload
 
         source = compile_spec(spec, node_resolver=accepting_resolver).source
 
         compile(source, "diagram.py", "exec")
-        self.assertIn("__import__", source)
-        self.assertIn("RuntimeError", source)
+        self.assertIn("from graphviz import escape", source)
+        self.assertIn("with Diagram(\n        escape(", source)
+        self.assertIn("with Cluster(escape(", source)
+        self.assertIn("_Icon0(escape(", source)
+        self.assertIn("Edge(label=escape(", source)
+        self.assertEqual(4, source.count("escape({})".format(repr(payload))))
 
     def test_svg_is_mandatory_and_png_is_optional(self):
         spec = valid_spec()

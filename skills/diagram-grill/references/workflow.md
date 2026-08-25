@@ -26,10 +26,11 @@ Confirm that the request is in scope and explicitly invoked. A compatible
 request concerns cloud infrastructure or software-system architecture and
 needs a component, deployment, network, integration, or data-flow view.
 
-Run only read-only prerequisite checks for Python 3.9+, Graphviz `dot`,
-`diagrams==0.25.1`, and the pinned Python dependencies. If a prerequisite is
-missing or has the wrong version, stop and provide installation instructions;
-do not install it.
+Run only read-only prerequisite checks for Python 3.9+, a trusted canonical
+Graphviz `dot` outside the workspace and repository, `diagrams==0.25.1`,
+`graphviz==0.20.3`, and the other pinned Python dependencies. If a prerequisite
+is missing or has the wrong version, stop and provide installation
+instructions; do not install it.
 
 Start with one architectural question the diagram must answer. Record the
 intended audience and abstraction level. Do not mix logical services, source
@@ -142,7 +143,8 @@ Create the bundle under `diagrams/<slug>/` with:
 - `diagram.json`, the approved source of truth;
 - `diagram.py`, deterministically generated code;
 - `diagram.svg`, the required rendered artifact;
-- `render-manifest.json`, including versions, hashes, formats, and warnings;
+- `render-manifest.json`, including versions, the verified `dot` content hash,
+  artifact hashes, formats, and warnings, without host-specific absolute paths;
 - `diagram.png` only when available or useful for visual QA.
 
 After approval, the renderer may materialize the approved temporary spec and

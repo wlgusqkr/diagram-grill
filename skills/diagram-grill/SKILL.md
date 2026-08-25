@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: "wlgusqkr"
   version: "0.1.0-alpha"
-  compatibility: "Local filesystem and shell access, Python 3.9+, Graphviz dot, diagrams 0.25.1"
+  compatibility: "Local filesystem and shell access, Python 3.9+, Graphviz dot, diagrams 0.25.1, graphviz 0.20.3"
 disable-model-invocation: true
 ---
 

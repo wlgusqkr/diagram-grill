@@ -113,7 +113,7 @@ def _emit_node(
 ) -> None:
     prefix = "    " * indent
     lines.append(
-        "{}{} = {}({}, nodeid={})".format(
+        "{}{} = {}(escape({}), nodeid={})".format(
             prefix,
             variable_name,
             icon_aliases[str(node["icon"])],
@@ -135,7 +135,7 @@ def _emit_group(
     prefix = "    " * indent
     group_id = str(group["id"])
     lines.append(
-        "{}with Cluster({}, graph_attr=CLUSTER_ATTR):".format(
+        "{}with Cluster(escape({}), graph_attr=CLUSTER_ATTR):".format(
             prefix, _python_literal(group["label"])
         )
     )
@@ -171,6 +171,7 @@ def _generate_source(
         "from pathlib import Path",
         "",
         "from diagrams import Cluster, Diagram, Edge",
+        "from graphviz import escape",
     ]
     for icon_path in sorted(icon_aliases):
         module_name, _, class_name = icon_path.rpartition(".")
@@ -193,7 +194,7 @@ def _generate_source(
             "",
             "def render():",
             "    with Diagram(",
-            "        {},".format(_python_literal(spec["title"])),
+            "        escape({}),".format(_python_literal(spec["title"])),
             "        filename=OUTPUT_BASENAME,",
             "        direction={},".format(_python_literal(spec["direction"])),
             "        outformat={},".format(_python_literal(list(formats))),
@@ -245,7 +246,7 @@ def _generate_source(
         style_name = str(edge["type"])
         label = edge.get("label", "")
         lines.append(
-            "        {} >> Edge(label={}, **EDGE_STYLES[{}]) >> {}".format(
+            "        {} >> Edge(label=escape({}), **EDGE_STYLES[{}]) >> {}".format(
                 node_variables[str(edge["from"])],
                 _python_literal(label),
                 _python_literal(style_name),

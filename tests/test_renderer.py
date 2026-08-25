@@ -1,12 +1,16 @@
+import base64
 import hashlib
 import importlib.util
 import json
+import os
+import signal
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 
 MODULE_PATH = (
@@ -35,7 +39,12 @@ VALID_PNG = b"\x89PNG\r\n\x1a\n" + b"fake-png-payload"
 class RendererTests(unittest.TestCase):
     def setUp(self):
         self.temporary_directory = tempfile.TemporaryDirectory()
+        self.tools_directory = tempfile.TemporaryDirectory()
         self.workspace = Path(self.temporary_directory.name)
+        self.dot_path = Path(self.tools_directory.name) / "dot"
+        self.dot_path.write_text("test executable", encoding="utf-8")
+        self.dot_path.chmod(0o755)
+        self.dot_path = self.dot_path.resolve()
         self.spec_path = self.workspace / "input.json"
         self.spec = {
             "schema_version": "1.0",
@@ -45,6 +54,7 @@ class RendererTests(unittest.TestCase):
         self.spec_path.write_text(json.dumps(self.spec), encoding="utf-8")
 
     def tearDown(self):
+        self.tools_directory.cleanup()
         self.temporary_directory.cleanup()
 
     def loader(self, path, *, mode):
@@ -52,10 +62,13 @@ class RendererTests(unittest.TestCase):
         with Path(path).open("r", encoding="utf-8") as spec_file:
             return json.load(spec_file)
 
-    @staticmethod
-    def preflight():
+    def preflight(self):
+        dot_identity, dot_sha256 = RENDERER._capture_executable(self.dot_path)
         return SimpleNamespace(
             ok=True,
+            dot_path=str(self.dot_path),
+            dot_identity=dot_identity,
+            dot_sha256=dot_sha256,
             checks=(
                 SimpleNamespace(
                     name="python",
@@ -81,8 +94,8 @@ class RendererTests(unittest.TestCase):
                 SimpleNamespace(
                     name="graphviz_python",
                     ok=True,
-                    expected="importable",
-                    actual="importable",
+                    expected="0.20.3",
+                    actual="0.20.3",
                     message="ok",
                 ),
                 SimpleNamespace(
@@ -159,8 +172,14 @@ class RendererTests(unittest.TestCase):
         manifest_bytes = (target / "render-manifest.json").read_bytes()
         manifest = json.loads(manifest_bytes)
         self.assertNotIn("timestamp", manifest)
+        self.assertNotIn(str(self.dot_path).encode("utf-8"), manifest_bytes)
         self.assertEqual("0.25.1", manifest["runtime"]["diagrams"]["actual"])
         self.assertEqual("12.2.1", manifest["runtime"]["dot"]["actual"])
+        self.assertNotIn("executable", manifest["runtime"]["dot"])
+        self.assertEqual(
+            hashlib.sha256(self.dot_path.read_bytes()).hexdigest(),
+            manifest["runtime"]["dot"]["sha256"],
+        )
         self.assertEqual(["fallback icon"], manifest["warnings"])
         self.assertEqual(
             self.sha256(target / "diagram.json"),
@@ -293,6 +312,175 @@ class RendererTests(unittest.TestCase):
         self.assertTrue((target / "diagram.svg").is_file())
         self.assertTrue((target / "diagram.png").is_file())
 
+    def test_svg_icons_are_bounded_embedded_and_reproducible(self):
+        resources_root = self.workspace / "trusted-resources"
+        resources_root.mkdir()
+        icon_path = resources_root / "icon.png"
+        icon_path.write_bytes(VALID_PNG)
+        source = (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            'xmlns:xlink="http://www.w3.org/1999/xlink">'
+            '<image xlink:href="{}" /></svg>\n'.format(icon_path)
+        ).encode("utf-8")
+
+        first = RENDERER._sanitize_svg(source, resources_root=resources_root)
+        second = RENDERER._sanitize_svg(source, resources_root=resources_root)
+
+        self.assertEqual(first, second)
+        self.assertNotIn(str(icon_path).encode("utf-8"), first)
+        self.assertIn(b"data:image/png;base64,", first)
+        self.assertIn(base64.b64encode(VALID_PNG), first)
+
+    def test_svg_sanitizer_strips_only_one_standard_graphviz_doctype(self):
+        standard_doctype = (
+            '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"\n'
+            ' "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">'
+        )
+        source = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            + standard_doctype
+            + '\n<svg xmlns="http://www.w3.org/2000/svg"><text>ok</text></svg>'
+        ).encode("utf-8")
+
+        sanitized = RENDERER._sanitize_svg(source)
+
+        self.assertNotIn(b"<!DOCTYPE", sanitized)
+        self.assertNotIn(b"<!ENTITY", sanitized)
+
+        invalid_sources = {
+            "duplicate standard declarations": (
+                standard_doctype
+                + standard_doctype
+                + '<svg xmlns="http://www.w3.org/2000/svg"><text>ok</text></svg>'
+            ),
+            "standard declaration with internal subset": (
+                '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
+                '"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" '
+                '[<!ENTITY leak "unsafe">]>'
+                '<svg xmlns="http://www.w3.org/2000/svg"><text>&leak;</text></svg>'
+            ),
+        }
+        for name, invalid_source in invalid_sources.items():
+            with self.subTest(name=name):
+                with self.assertRaises(RENDERER.ArtifactValidationError):
+                    RENDERER._sanitize_svg(invalid_source.encode("utf-8"))
+
+    def test_svg_sanitizer_rejects_active_content_and_untrusted_links(self):
+        resources_root = self.workspace / "trusted-resources"
+        resources_root.mkdir()
+        outside_icon = self.workspace / "outside.png"
+        outside_icon.write_bytes(VALID_PNG)
+        oversized_icon = VALID_PNG + b"x" * RENDERER.MAX_EMBEDDED_ICON_BYTES
+        oversized_data_uri = (
+            "data:image/png;base64," + base64.b64encode(oversized_icon).decode("ascii")
+        )
+
+        invalid_sources = {
+            "doctype": (
+                b'<!DOCTYPE svg SYSTEM "https://attacker.invalid/diagram.dtd">'
+                b'<svg xmlns="http://www.w3.org/2000/svg"><text>ok</text></svg>'
+            ),
+            "entity": (
+                b'<!DOCTYPE svg [<!ENTITY leak SYSTEM "file:///etc/passwd">]>'
+                b'<svg xmlns="http://www.w3.org/2000/svg"><text>&leak;</text></svg>'
+            ),
+            "script": (
+                b'<svg xmlns="http://www.w3.org/2000/svg">'
+                b'<script>alert(1)</script></svg>'
+            ),
+            "foreignObject": (
+                b'<svg xmlns="http://www.w3.org/2000/svg">'
+                b'<foreignObject><p>unsafe</p></foreignObject></svg>'
+            ),
+            "event handler": (
+                b'<svg xmlns="http://www.w3.org/2000/svg">'
+                b'<g onclick="alert(1)" /></svg>'
+            ),
+            "style import": (
+                b'<svg xmlns="http://www.w3.org/2000/svg">'
+                b'<style>@import url(https://attacker.invalid/leak);</style></svg>'
+            ),
+            "smil set href": (
+                b'<svg xmlns="http://www.w3.org/2000/svg"><a>'
+                b'<set attributeName="href" to="javascript:alert(1)" begin="0s" />'
+                b'<text>click</text></a></svg>'
+            ),
+            "external presentation url": (
+                b'<svg xmlns="http://www.w3.org/2000/svg">'
+                b'<rect width="1" height="1" '
+                b'fill="url(https://attacker.invalid/leak)" /></svg>'
+            ),
+            "allowed element external url": (
+                b'<svg xmlns="http://www.w3.org/2000/svg">'
+                b'<path d="M0,0" fill="url(https://attacker.invalid/leak)" />'
+                b'</svg>'
+            ),
+            "allowed element dangerous scheme": (
+                b'<svg xmlns="http://www.w3.org/2000/svg">'
+                b'<path d="M0,0" fill="javascript:alert(1)" /></svg>'
+            ),
+            "allowed element network reference": (
+                b'<svg xmlns="http://www.w3.org/2000/svg">'
+                b'<path d="M0,0" fill="//attacker.invalid/leak" /></svg>'
+            ),
+            "non-data link": (
+                b'<svg xmlns="http://www.w3.org/2000/svg">'
+                b'<a href="javascript:alert(1)">click</a></svg>'
+            ),
+            "non-data xlink": (
+                b'<svg xmlns="http://www.w3.org/2000/svg" '
+                b'xmlns:xlink="http://www.w3.org/1999/xlink">'
+                b'<a xlink:href="https://example.com/">click</a></svg>'
+            ),
+            "outside icon": (
+                '<svg xmlns="http://www.w3.org/2000/svg">'
+                '<image href="{}" /></svg>'.format(outside_icon).encode("utf-8")
+            ),
+            "non-png data": (
+                b'<svg xmlns="http://www.w3.org/2000/svg">'
+                b'<image href="data:text/html;base64,PHNjcmlwdD4=" /></svg>'
+            ),
+            "oversized data": (
+                '<svg xmlns="http://www.w3.org/2000/svg">'
+                '<image href="{}" /></svg>'.format(oversized_data_uri).encode("ascii")
+            ),
+        }
+
+        for name, source in invalid_sources.items():
+            with self.subTest(name=name):
+                with self.assertRaises(RENDERER.ArtifactValidationError):
+                    RENDERER._sanitize_svg(source, resources_root=resources_root)
+
+        for element_name in (
+            "animate",
+            "animateMotion",
+            "animateTransform",
+            "discard",
+            "set",
+        ):
+            with self.subTest(smil=element_name):
+                source = (
+                    '<svg xmlns="http://www.w3.org/2000/svg"><{} /></svg>'.format(
+                        element_name
+                    )
+                ).encode("ascii")
+                with self.assertRaises(RENDERER.ArtifactValidationError):
+                    RENDERER._sanitize_svg(source, resources_root=resources_root)
+
+    def test_svg_sanitizer_revalidates_the_serialized_tree(self):
+        active_output = (
+            b'<svg xmlns="http://www.w3.org/2000/svg">'
+            b'<style>@import url(https://attacker.invalid/leak);</style></svg>'
+        )
+
+        with mock.patch.object(
+            RENDERER.ElementTree,
+            "tostring",
+            return_value=active_output,
+        ):
+            with self.assertRaises(RENDERER.ArtifactValidationError):
+                RENDERER._sanitize_svg(VALID_SVG)
+
     def test_subprocess_environment_is_sanitized(self):
         capture = {}
         target = self.build(
@@ -315,10 +503,232 @@ class RendererTests(unittest.TestCase):
         self.assertTrue(render_cwd.name.startswith(".example-stage-"))
         self.assertNotIn("PYTHONPATH", kwargs["env"])
         self.assertNotIn("SECRET_TOKEN", kwargs["env"])
-        self.assertEqual("/safe/bin", kwargs["env"]["PATH"])
+        self.assertEqual(str(self.dot_path.parent), kwargs["env"]["PATH"])
         self.assertEqual("1", kwargs["env"]["PYTHONDONTWRITEBYTECODE"])
+        self.assertEqual("0", kwargs["env"]["PYTHONHASHSEED"])
+        self.assertEqual("1", kwargs["env"]["PYTHONNOUSERSITE"])
         self.assertEqual("1", kwargs["env"]["PYTHONUTF8"])
         self.assertEqual("diagram.py", capture["command"][1])
+
+    def test_in_place_dot_mutation_before_spawn_fails_closed(self):
+        runner = mock.Mock()
+
+        def mutating_compiler(spec, *, formats):
+            self.dot_path.write_text("mutated in place", encoding="utf-8")
+            self.dot_path.chmod(0o755)
+            return SimpleNamespace(source="print('render')\n", warnings=())
+
+        with self.assertRaisesRegex(RENDERER.BundleBuildError, "changed after preflight"):
+            self.build(compile_func=mutating_compiler, command_runner=runner)
+
+        runner.assert_not_called()
+        self.assertFalse((self.workspace / "diagrams" / "example").exists())
+
+    def test_dot_symlink_swap_before_spawn_fails_closed(self):
+        runner = mock.Mock()
+        original = self.dot_path.parent / "original-dot"
+        replacement_root = self.dot_path.parent / "replacement"
+        replacement_root.mkdir()
+        replacement = replacement_root / "dot"
+        replacement.write_text("replacement", encoding="utf-8")
+        replacement.chmod(0o755)
+
+        def swapping_compiler(spec, *, formats):
+            self.dot_path.rename(original)
+            self.dot_path.symlink_to(replacement)
+            return SimpleNamespace(source="print('render')\n", warnings=())
+
+        with self.assertRaisesRegex(RENDERER.BundleBuildError, "immediately before"):
+            self.build(compile_func=swapping_compiler, command_runner=runner)
+
+        runner.assert_not_called()
+        self.assertTrue(self.dot_path.is_symlink())
+
+    def test_target_appearing_during_render_blocks_promotion_and_is_preserved(self):
+        target = self.workspace / "diagrams" / "example"
+
+        def racing_runner(command, **kwargs):
+            stage = Path(kwargs["cwd"])
+            (stage / "diagram.svg").write_bytes(VALID_SVG)
+            target.mkdir()
+            (target / "racer.txt").write_text("keep", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+        with self.assertRaisesRegex(RENDERER.BundleBuildError, "target appeared"):
+            self.build(command_runner=racing_runner)
+
+        self.assertEqual("keep", (target / "racer.txt").read_text(encoding="utf-8"))
+        self.assertEqual([], self.hidden_work_directories())
+
+    def test_target_inode_change_during_update_blocks_promotion(self):
+        target = self.build()
+        preserved = target.parent / "preserved-original"
+
+        def racing_runner(command, **kwargs):
+            stage = Path(kwargs["cwd"])
+            (stage / "diagram.svg").write_bytes(VALID_SVG)
+            target.rename(preserved)
+            target.mkdir()
+            (target / "racer.txt").write_text("replacement", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+        with self.assertRaisesRegex(RENDERER.BundleBuildError, "changed identity"):
+            self.build(update=True, command_runner=racing_runner)
+
+        self.assertEqual(
+            "replacement",
+            (target / "racer.txt").read_text(encoding="utf-8"),
+        )
+        self.assertTrue((preserved / "render-manifest.json").is_file())
+        self.assertEqual([], self.hidden_work_directories())
+
+    def test_target_disappearance_and_symlink_change_are_detected(self):
+        target = self.workspace / "diagrams" / "example"
+        target.mkdir(parents=True)
+        identity = RENDERER._path_identity(target)
+
+        preserved = target.parent / "preserved"
+        target.rename(preserved)
+        with self.assertRaisesRegex(RENDERER.BundleBuildError, "disappeared"):
+            RENDERER._assert_same_identity(target, identity, "bundle target")
+
+        external = self.workspace / "external"
+        external.mkdir()
+        target.symlink_to(external, target_is_directory=True)
+        with self.assertRaisesRegex(RENDERER.BundleBuildError, "became a symlink"):
+            RENDERER._assert_same_identity(target, identity, "bundle target")
+
+        self.assertTrue(target.is_symlink())
+        self.assertTrue(preserved.is_dir())
+
+    def test_cleanup_skips_replaced_parent_and_stage_paths(self):
+        diagrams_root = self.workspace / "cleanup-diagrams"
+        stage = diagrams_root / ".stage"
+        stage.mkdir(parents=True)
+        (stage / "owned.txt").write_text("owned", encoding="utf-8")
+        diagrams_identity = RENDERER._path_identity(diagrams_root)
+        stage_identity = RENDERER._path_identity(stage)
+
+        moved_root = self.workspace / "moved-cleanup-diagrams"
+        diagrams_root.rename(moved_root)
+        replacement_stage = diagrams_root / ".stage"
+        replacement_stage.mkdir(parents=True)
+        marker = replacement_stage / "external.txt"
+        marker.write_text("preserve", encoding="utf-8")
+
+        cleaned = RENDERER._safe_cleanup_tree(
+            stage,
+            expected_identity=stage_identity,
+            parent=diagrams_root,
+            expected_parent_identity=diagrams_identity,
+        )
+
+        self.assertFalse(cleaned)
+        self.assertEqual("preserve", marker.read_text(encoding="utf-8"))
+        self.assertTrue((moved_root / ".stage" / "owned.txt").is_file())
+
+    def test_changed_update_backup_is_verified_and_retained(self):
+        diagrams_root = self.workspace / "promotion"
+        stage = diagrams_root / ".stage"
+        target = diagrams_root / "example"
+        stage.mkdir(parents=True)
+        target.mkdir()
+        (stage / "new.txt").write_text("new", encoding="utf-8")
+        (target / "old.txt").write_text("old", encoding="utf-8")
+        diagrams_identity = RENDERER._path_identity(diagrams_root)
+        stage_identity = RENDERER._path_identity(stage)
+        target_identity = RENDERER._path_identity(target)
+        preserved_old = diagrams_root / "preserved-old"
+        real_replace = os.replace
+
+        def racing_replace(source, destination):
+            real_replace(source, destination)
+            if Path(source) == stage and Path(destination) == target:
+                backup = next(diagrams_root.glob(".example-backup-*"))
+                backup.rename(preserved_old)
+                backup.mkdir()
+                (backup / "racer.txt").write_text("preserve", encoding="utf-8")
+
+        with mock.patch.object(RENDERER.os, "replace", side_effect=racing_replace):
+            with self.assertRaisesRegex(RENDERER.BundleBuildError, "retained for safety"):
+                RENDERER._promote_stage(
+                    stage,
+                    target,
+                    replace_existing=True,
+                    diagrams_root=diagrams_root,
+                    diagrams_identity=diagrams_identity,
+                    stage_identity=stage_identity,
+                    target_identity=target_identity,
+                )
+
+        changed_backup = next(diagrams_root.glob(".example-backup-*"))
+        self.assertEqual(
+            "preserve", (changed_backup / "racer.txt").read_text(encoding="utf-8")
+        )
+        self.assertEqual("old", (preserved_old / "old.txt").read_text(encoding="utf-8"))
+        self.assertEqual("new", (target / "new.txt").read_text(encoding="utf-8"))
+
+    @unittest.skipUnless(os.name == "posix", "POSIX process groups only")
+    def test_timeout_terminates_the_renderer_process_group(self):
+        process = mock.Mock()
+        process.pid = 43210
+        process.communicate.side_effect = [
+            subprocess.TimeoutExpired([sys.executable, "diagram.py"], 0.1),
+            ("partial output", ""),
+        ]
+        process.wait.side_effect = subprocess.TimeoutExpired("wait", 0.25)
+        process.poll.return_value = None
+
+        with mock.patch.object(RENDERER.subprocess, "Popen", return_value=process) as popen:
+            with mock.patch.object(RENDERER.os, "killpg") as killpg:
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    RENDERER._run_process_group(
+                        [sys.executable, "diagram.py"],
+                        cwd=self.workspace,
+                        env={"PATH": str(self.dot_path.parent)},
+                        timeout=0.1,
+                    )
+
+        self.assertTrue(popen.call_args.kwargs["start_new_session"])
+        self.assertEqual(
+            [
+                mock.call(process.pid, signal.SIGTERM),
+                mock.call(process.pid, signal.SIGKILL),
+            ],
+            killpg.call_args_list,
+        )
+        process.kill.assert_called_once_with()
+
+    @unittest.skipUnless(os.name == "posix", "POSIX process groups only")
+    def test_timeout_closes_pipes_when_post_kill_drain_stays_blocked(self):
+        process = mock.Mock()
+        process.pid = 43211
+        process.communicate.side_effect = [
+            subprocess.TimeoutExpired([sys.executable, "diagram.py"], 0.1),
+            subprocess.TimeoutExpired(
+                [sys.executable, "diagram.py"],
+                RENDERER._TERMINATION_GRACE_SECONDS,
+                output="partial",
+                stderr="held",
+            ),
+        ]
+        process.wait.side_effect = subprocess.TimeoutExpired("wait", 0.25)
+        process.poll.return_value = None
+
+        with mock.patch.object(RENDERER.subprocess, "Popen", return_value=process):
+            with mock.patch.object(RENDERER.os, "killpg"):
+                with self.assertRaises(subprocess.TimeoutExpired) as caught:
+                    RENDERER._run_process_group(
+                        [sys.executable, "diagram.py"],
+                        cwd=self.workspace,
+                        env={"PATH": str(self.dot_path.parent)},
+                        timeout=0.1,
+                    )
+
+        self.assertEqual("partial", caught.exception.output)
+        process.stdout.close.assert_called_once_with()
+        process.stderr.close.assert_called_once_with()
+        process.stdin.close.assert_called_once_with()
 
     @staticmethod
     def sha256(path):

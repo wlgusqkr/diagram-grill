@@ -26,6 +26,7 @@ published.
 - Graphviz `dot`
 - Python dependencies pinned in
   [`skills/diagram-grill/requirements.lock`](skills/diagram-grill/requirements.lock)
+  (including `diagrams==0.25.1` and `graphviz==0.20.3`)
 
 The future `npx skills add wlgusqkr/diagram-grill` command installs the Agent
 Skill files; it does not install Python or Graphviz.
