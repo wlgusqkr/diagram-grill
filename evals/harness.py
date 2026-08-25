@@ -22,6 +22,10 @@ PHASE_CONDITIONS = {
 }
 PHASE_REPEATS = {"prelaunch-24": 1, "rigorous-108": 3}
 _FULL_GIT_OID = re.compile(r"^[0-9a-f]{40}$")
+WORKSPACE_CONTRACT = (
+    "The evidence is under `./repo/`; treat it as read-only. Write any requested "
+    "diagram or other output in the current workspace, never inside `./repo/`."
+)
 
 
 class EvaluationError(ValueError):
@@ -116,8 +120,15 @@ def validate_fixtures(eval_root: Path = EVAL_ROOT) -> List[str]:
         oracle_path = required_paths["oracle_path"]
         if not fixture_path.is_dir() or fixture_path.is_symlink():
             issues.append("{} fixture directory is missing or symlinked".format(case_id))
-        if not prompt_path.is_file() or not prompt_path.read_text(encoding="utf-8").strip():
+        prompt_text = (
+            prompt_path.read_text(encoding="utf-8") if prompt_path.is_file() else ""
+        )
+        if not prompt_text.strip():
             issues.append("{} prompt is missing or empty".format(case_id))
+        elif "diagram-grill" in prompt_text.lower():
+            issues.append("{} base prompt names the evaluated skill".format(case_id))
+        elif WORKSPACE_CONTRACT not in prompt_text:
+            issues.append("{} prompt is missing the common workspace contract".format(case_id))
         if not repo_path.is_dir() or repo_path.is_symlink():
             issues.append("{} repo directory is missing or symlinked".format(case_id))
             continue

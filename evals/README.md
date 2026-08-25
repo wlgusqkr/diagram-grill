@@ -20,10 +20,14 @@ review after the run.
 Run every case once in each of two conditions, for 24 runs total:
 
 1. **Baseline (12 runs):** use the same agent and model without Diagram Grill.
-   Give it `prompt.md` and read-only access to the fixture's `repo/` directory.
-2. **Skill (12 runs):** use the same agent, model, settings, and fixture, then
-   explicitly invoke Diagram Grill. Complete its question-and-approval flow
-   without adding facts that are absent from the case's oracle.
+   Give it the condition-neutral `prompt.md` and the fixture's `repo/` directory.
+2. **Skill (12 runs):** use the same agent, model, settings, and fixture. Prefix
+   the same base prompt with exactly `$diagram-grill\n\n`; this is the sole
+   prompt treatment. Complete its question-and-approval flow without adding
+   facts that are absent from the case's oracle.
+
+No fixed base prompt may name Diagram Grill. The deterministic runner retains
+both the base prompt and the exact condition-specific delivered prompt.
 
 Freeze the model identifier, agent/client version, tool permissions, operating
 system, Python version, Graphviz version, dependency lock, Diagram Grill

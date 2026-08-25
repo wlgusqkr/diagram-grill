@@ -4,6 +4,11 @@ Use this protocol for both conditions in the 24-run prelaunch evaluation. Its
 purpose is to keep user decisions deterministic without helping one condition
 more than the other.
 
+The checked-in `prompt.md` files are condition-neutral. The Diagram Grill
+condition receives exactly `$diagram-grill\n\n` before that base prompt; the
+baseline receives the base prompt unchanged. Do not add any other
+condition-specific instruction.
+
 The fixed responses are in `operator-answers.json`. The evaluator may read
 that file. The agent under evaluation must not receive it, any `oracle.json`,
 or information derived from either source.
@@ -64,3 +69,75 @@ explicitly asks for approval.
   sequence.
 - Do not create aggregate results or performance claims from this operator
   protocol. The review boundary in `README.md` still applies.
+
+## Codex CLI runner
+
+`codex_runner.py` prepares oracle-free workspaces, fixes the 24-run order,
+retains raw JSONL, and sends only registered operator text. It does not infer
+which decision an agent asked about and it does not adjudicate a run. The human
+operator must match the question by meaning and select the corresponding ID.
+
+Create a dedicated runtime outside this repository and outside the results
+directory. Installing dependencies here is an evaluator setup step; the skill
+still never installs them automatically. System Graphviz must already exist.
+
+```bash
+python3 -m venv /absolute/external/path/diagram-grill-eval-venv
+/absolute/external/path/diagram-grill-eval-venv/bin/python3 -m pip install \
+  -r skills/diagram-grill/requirements.lock
+```
+
+Print the frozen order, then prepare one run. `--skill-package` is validated in
+both conditions so both use the same runtime checks, but it is copied into the
+agent workspace only for `diagram-grill`.
+
+```bash
+.venv/bin/python evals/codex_runner.py plan
+
+.venv/bin/python evals/codex_runner.py prepare \
+  --results-root /absolute/external/path/diagram-grill-results \
+  --experiment prelaunch-2026-08-25 \
+  --case 01-checkout \
+  --condition baseline \
+  --model gpt-5.4 \
+  --model-version gpt-5.4-requested-2026-08-25 \
+  --runtime-bin /absolute/external/path/diagram-grill-eval-venv/bin \
+  --skill-package skills/diagram-grill
+```
+
+Preparation makes no model call. It rejects runtime paths inside the source or
+results trees, runs the skill preflight with the external `python3`, freezes
+installed dependencies, hashes the base and delivered prompts, snapshots the
+evidence, and validates that the skill package contains no fixtures, tests, or
+oracles.
+
+Launch and resume require an explicit `--execute` acknowledgement because each
+command can make a billable model call. The fixed treatment is Codex CLI with
+medium reasoning, default service tier, approval policy `never`,
+`workspace-write`, and user config and rules ignored.
+
+```bash
+RUN=/absolute/external/path/diagram-grill-results/prelaunch-2026-08-25/01-checkout--baseline--r1
+
+.venv/bin/python evals/codex_runner.py launch "$RUN" --execute
+.venv/bin/python evals/codex_runner.py reply "$RUN" --decision-id payment-timing --execute
+.venv/bin/python evals/codex_runner.py reply "$RUN" --unknown --execute
+.venv/bin/python evals/codex_runner.py reply "$RUN" --approve --brief-reviewed --execute
+.venv/bin/python evals/codex_runner.py close "$RUN" --reason agent-finished
+.venv/bin/python evals/codex_runner.py status "$RUN"
+```
+
+Use only the reply that matches the current agent message. Multiple
+`--decision-id` flags are allowed only when one agent question clearly asks
+those decisions together. Combine decision IDs with `--unknown` only when the
+same agent turn also asks an unindexed question; the runner sends the fixed
+answers on separate lines. Approval is refused unless every indexed decision
+has already been answered and the operator explicitly attests that the current
+brief was reviewed. If approval is requested too early, close with
+`--reason approval-withheld`; do not reveal the missing answer.
+
+Each run retains `input/` snapshots, the working tree, `state.json`, exact
+operator messages, per-turn stdout/stderr/last messages, a raw combined
+`transcript.jsonl`, and a turn index. A changed evidence repository or installed
+skill is recorded as an integrity violation. Client failures and timeouts are
+preserved and never retried in place.
