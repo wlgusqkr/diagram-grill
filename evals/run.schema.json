@@ -11,11 +11,14 @@
     "condition",
     "repeat",
     "execution",
+    "execution_fingerprint",
+    "protocol_hashes",
+    "integrity",
     "artifacts",
     "adjudication"
   ],
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "1.1"},
     "phase": {"enum": ["prelaunch-24", "rigorous-108"]},
     "case_id": {"type": "string", "pattern": "^[0-9]{2}-[a-z0-9-]+$"},
     "condition": {
@@ -23,6 +26,9 @@
     },
     "repeat": {"type": "integer", "minimum": 1, "maximum": 3},
     "execution": {"$ref": "#/$defs/execution"},
+    "execution_fingerprint": {"$ref": "#/$defs/sha256"},
+    "protocol_hashes": {"$ref": "#/$defs/protocol_hashes"},
+    "integrity": {"$ref": "#/$defs/integrity"},
     "artifacts": {"$ref": "#/$defs/artifacts"},
     "adjudication": {"$ref": "#/$defs/adjudication"}
   },
@@ -37,11 +43,33 @@
       "minLength": 1,
       "maxLength": 512
     },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "image_id": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "string_set": {
       "type": "array",
       "uniqueItems": true,
       "maxItems": 200,
       "items": {"$ref": "#/$defs/short_text"}
+    },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/relative_path"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1073741824
+        }
+      }
     },
     "execution": {
       "type": "object",
@@ -51,11 +79,20 @@
         "client_version",
         "model",
         "model_version",
+        "model_version_source",
         "operating_system",
         "python_version",
         "graphviz_version",
         "diagrams_version",
         "skill_commit",
+        "agent_image_id",
+        "proxy_image_id",
+        "reasoning_effort",
+        "service_tier",
+        "approval_policy",
+        "sandbox_mode",
+        "tool_network",
+        "web_search",
         "tested_at"
       ],
       "properties": {
@@ -63,6 +100,9 @@
         "client_version": {"$ref": "#/$defs/short_text"},
         "model": {"$ref": "#/$defs/short_text"},
         "model_version": {"$ref": "#/$defs/short_text"},
+        "model_version_source": {
+          "enum": ["requested-identifier", "provider-reported"]
+        },
         "operating_system": {"$ref": "#/$defs/short_text"},
         "python_version": {"$ref": "#/$defs/short_text"},
         "graphviz_version": {"$ref": "#/$defs/short_text"},
@@ -71,10 +111,58 @@
           "type": "string",
           "pattern": "^[0-9a-f]{40}$"
         },
+        "agent_image_id": {"$ref": "#/$defs/image_id"},
+        "proxy_image_id": {"$ref": "#/$defs/image_id"},
+        "reasoning_effort": {"$ref": "#/$defs/short_text"},
+        "service_tier": {"$ref": "#/$defs/short_text"},
+        "approval_policy": {"$ref": "#/$defs/short_text"},
+        "sandbox_mode": {"$ref": "#/$defs/short_text"},
+        "tool_network": {"enum": ["disabled"]},
+        "web_search": {"enum": ["disabled"]},
         "tested_at": {
           "type": "string",
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+$"
         }
+      }
+    },
+    "protocol_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operator_answers_sha256",
+        "case_oracle_sha256",
+        "cases_index_sha256",
+        "run_schema_sha256",
+        "base_prompt_sha256",
+        "delivered_prompt_sha256",
+        "repo_manifest_sha256",
+        "skill_manifest_sha256"
+      ],
+      "properties": {
+        "operator_answers_sha256": {"$ref": "#/$defs/sha256"},
+        "case_oracle_sha256": {"$ref": "#/$defs/sha256"},
+        "cases_index_sha256": {"$ref": "#/$defs/sha256"},
+        "run_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "base_prompt_sha256": {"$ref": "#/$defs/sha256"},
+        "delivered_prompt_sha256": {"$ref": "#/$defs/sha256"},
+        "repo_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "skill_manifest_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_violations",
+        "session_violations",
+        "isolation_succeeded",
+        "teardown_succeeded"
+      ],
+      "properties": {
+        "source_violations": {"$ref": "#/$defs/string_set"},
+        "session_violations": {"$ref": "#/$defs/string_set"},
+        "isolation_succeeded": {"type": "boolean"},
+        "teardown_succeeded": {"type": "boolean"}
       }
     },
     "artifacts": {
@@ -82,15 +170,17 @@
       "additionalProperties": false,
       "required": ["transcript"],
       "properties": {
-        "transcript": {"$ref": "#/$defs/relative_path"},
-        "tool_log": {"$ref": "#/$defs/relative_path"},
-        "architecture_brief": {"$ref": "#/$defs/relative_path"},
-        "diagram_json": {"$ref": "#/$defs/relative_path"},
-        "render_manifest": {"$ref": "#/$defs/relative_path"},
-        "diagram_svg": {"$ref": "#/$defs/relative_path"},
-        "diagram_png": {"$ref": "#/$defs/relative_path"},
-        "stdout": {"$ref": "#/$defs/relative_path"},
-        "stderr": {"$ref": "#/$defs/relative_path"}
+        "transcript": {"$ref": "#/$defs/artifact_ref"},
+        "tool_log": {"$ref": "#/$defs/artifact_ref"},
+        "architecture_brief": {"$ref": "#/$defs/artifact_ref"},
+        "primary_diagram": {"$ref": "#/$defs/artifact_ref"},
+        "diagram_json": {"$ref": "#/$defs/artifact_ref"},
+        "diagram_python": {"$ref": "#/$defs/artifact_ref"},
+        "render_manifest": {"$ref": "#/$defs/artifact_ref"},
+        "diagram_svg": {"$ref": "#/$defs/artifact_ref"},
+        "diagram_png": {"$ref": "#/$defs/artifact_ref"},
+        "stdout": {"$ref": "#/$defs/artifact_ref"},
+        "stderr": {"$ref": "#/$defs/artifact_ref"}
       }
     },
     "adjudication": {
@@ -110,8 +200,9 @@
         "approval_requested_before_write",
         "files_written_before_approval",
         "render_succeeded",
-        "visual_qa_performed",
-        "visual_defects",
+        "human_visual_review_performed",
+        "human_visual_defects",
+        "agent_visual_qa_performed",
         "safety_violations"
       ],
       "properties": {
@@ -139,8 +230,9 @@
         "approval_requested_before_write": {"type": "boolean"},
         "files_written_before_approval": {"type": "boolean"},
         "render_succeeded": {"type": "boolean"},
-        "visual_qa_performed": {"type": "boolean"},
-        "visual_defects": {"$ref": "#/$defs/string_set"},
+        "human_visual_review_performed": {"type": "boolean"},
+        "human_visual_defects": {"$ref": "#/$defs/string_set"},
+        "agent_visual_qa_performed": {"type": "boolean"},
         "safety_violations": {"$ref": "#/$defs/string_set"}
       }
     }

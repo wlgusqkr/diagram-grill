@@ -14,10 +14,10 @@ evidence does not exist or cannot be shared, remove the claim.
 | Approval-before-write behavior | Transcript, tool log, and artifact timestamps from an end-to-end run | Describe the designed workflow | The instruction text alone |
 | Security property | Specific test and threat-boundary documentation | `Designed to...` with the boundary | Absence of a reported incident |
 | Client compatibility | End-to-end run with client version, model, prompt, transcript, and artifacts | Omit the client | Shared Agent Skills syntax |
-| Baseline comparison | Complete paired protocol, reviewed records, and public metric definitions | Describe the protocol only | One selected anecdote |
-| Success percentage | Complete planned matrix and reviewable aggregate from the versioned harness | Publish no percentage | Partial runs or excluded failures |
+| Baseline comparison | Complete paired protocol, one invariant execution fingerprint, zero integrity failures, reviewed records, and public metric definitions | Describe the protocol only | One selected anecdote |
+| Success percentage | Complete planned matrix, condition-neutral primary-success definition, and `claim_ready: true` from the versioned harness | Publish no percentage | Partial runs, process-only criteria, or excluded failures |
 | Before/After demo | Actual retained baseline failure and paired skill run | No comparison asset | A staged or reconstructed output |
-| Visual quality | Retained PNG plus recorded visual review | State that visual QA was unavailable | Successful SVG generation |
+| Visual quality | Retained primary SVG or PNG plus recorded human visual review | State that human visual review was unavailable | Successful generation or agent QA alone |
 | OSS evaluation | Pinned checkout, retained run, license compliance, and reviewed result | `Three OSS cases are defined for future evaluation.` | Metadata pins alone |
 | User count | Opt-in, deduplicated records with a stated definition | `No user count is available.` | Stars, clones, or page views |
 | Repeat usage | Opt-in longitudinal record and explicit metric definition | Make no retention claim | Multiple commands in one session |
@@ -36,22 +36,30 @@ evidence does not exist or cannot be shared, remove the claim.
   denominator defined by the protocol.
 - Any rerun with changed wording, permissions, versions, or answers is a new
   experiment, not a replacement.
-- Publish metric definitions, raw reviewed records, and the exact commit with
-  every aggregate.
+- Primary task success must use the same condition-neutral criteria for every
+  condition. Approval fidelity, agent QA, and Diagram Grill bundle completeness
+  are process metrics, not primary-success requirements.
+- Each reviewed run must validate its protocol hashes and every artifact's
+  relative path, byte size, and SHA-256 digest.
+- Publish metric definitions, raw reviewed records, the one invariant execution
+  fingerprint, integrity result, and exact commit with every aggregate.
 
 ## Compatibility record requirements
 
 For each named client, retain:
 
 - client name and exact version;
-- model identifier and relevant settings;
+- requested model identifier, whether version metadata is provider-reported or
+  only requested, and relevant settings;
 - operating system and runtime versions;
 - installation mode and installed-file inventory;
 - exact representative prompt and explicit invocation;
 - full transcript and tool log;
 - Architecture Brief and approval record;
-- generated artifact bundle and exit status;
-- visual-QA record or an explicit statement that it was unavailable;
+- primary SVG or PNG, generated artifact bundle where applicable, and exit
+  status;
+- human visual-review record and separate agent-QA record, or explicit
+  statements that either was unavailable;
 - reviewer and test date.
 
 Passing installation alone is not compatibility.
@@ -89,7 +97,12 @@ Approved for publication: yes / no
 - Every number has a public definition, date window, and evidence link.
 - Every named client has a complete compatibility record.
 - The demo comes from a real retained baseline failure.
-- The Before/After uses the same frozen case and settings.
+- The Before/After uses the same case and base prompt, only the declared skill
+  invocation treatment differs, and both records share one invariant execution
+  fingerprint and clean integrity results. It does not claim immutable model
+  weights without provider evidence.
+- The aggregate harness reports `claim_ready: true`, one execution fingerprint,
+  and zero integrity failures.
 - Limitations appear near the relevant claim.
 - The install command was tested against the exact public release.
 - No users, testimonials, or adoption are implied without opt-in evidence.

@@ -36,8 +36,13 @@ ready-to-post headline.
 3. **What was built**
    - Briefly describe Diagram Grill and the narrow supported diagram scope.
 4. **Experiment setup**
-   - Same agent and model, fresh workspaces, fixed prompts, baseline versus
-     explicit skill invocation, condition-neutral answers, fixed oracles.
+   - Same agent, requested model identifier, invariant execution fingerprint,
+     fresh workspaces, fixed prompts, baseline versus explicit skill
+     invocation, condition-neutral answers, and fixed oracles.
+   - Say whether the model version was provider-reported or only the requested
+     identifier; do not describe an identifier and date as immutable weights.
+   - Report source/session isolation, teardown, protocol-hash, and artifact-hash
+     integrity checks.
    - State 12 cases and 24 runs only when all 24 records are complete.
 5. **Observed outcomes**
    - Use a compact table populated directly from reviewed run records.
@@ -63,13 +68,16 @@ Leave cells empty until a reviewed aggregate exists.
 
 | Metric | Baseline | Diagram Grill | Definition and evidence |
 | --- | ---: | ---: | --- |
-| Strict success |  |  |  |
+| Primary task success |  |  | Condition-neutral definition fixed before runs |
 | Evidence-fact coverage |  |  |  |
 | Critical-ambiguity coverage |  |  |  |
 | Required-connection coverage |  |  |  |
 | Unsupported assumptions |  |  |  |
 | Render success |  |  |  |
-| Visible rendering defects |  |  |  |
+| Human-reviewed visual defects |  |  | Human review of retained SVG or PNG |
+| Approval fidelity |  |  | Separate process metric; not primary success |
+| Agent visual QA |  |  | Separate from human review |
+| Diagram Grill bundle completeness | n/a |  | JSON, Python, manifest, and SVG retained |
 
 ## Do not claim
 

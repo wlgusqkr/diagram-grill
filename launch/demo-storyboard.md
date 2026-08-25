@@ -9,15 +9,25 @@ Select one retained pair from the prelaunch evaluation. `01-checkout` is a
 candidate because it tells a compact end-to-end story, but it may be used only
 if the actual records satisfy every item below:
 
-- Baseline and Diagram Grill runs used the same frozen model, client, prompt,
-  fixture snapshot, permissions, and runtime settings.
-- A reviewer recorded a concrete baseline failure against the fixed oracle.
+- Baseline and Diagram Grill runs used the same requested model identifier,
+  recorded provider version metadata when available, client, base prompt,
+  fixture snapshot, permissions, and invariant execution fingerprint.
+- Both records passed source, session, isolation, teardown, protocol-hash, and
+  artifact-integrity checks.
+- A human reviewer recorded a concrete baseline failure against the fixed,
+  condition-neutral primary criteria: evidence or decision coverage, required
+  connections, unsupported assumptions, usable SVG/PNG output, or visible
+  defects.
 - The paired skill run produced a genuinely different reviewed outcome.
 - Both raw transcripts, tool logs, run records, and artifacts are retained.
 - The comparison does not depend on a rerun, hidden hint, changed operator
   answer, or hand-edited output.
 - Every on-screen claim maps to a field or reviewer note in the retained run
   records.
+
+Missing Diagram Grill approval, its generated bundle, or agent-performed visual
+QA is not by itself a baseline failure. If no neutral primary failure exists,
+the pair does not qualify for a Before/After demo.
 
 If no pair passes this gate, do not manufacture a Before/After demo. Postpone
 the demo and the launch asset.
