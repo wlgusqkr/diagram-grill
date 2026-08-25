@@ -1,0 +1,76 @@
+# Generated with uv 0.8.4 using:
+# uv pip compile requirements.txt --universal --python-version 3.9 --output-file requirements.lock
+attrs==26.1.0
+    # via
+    #   jsonschema
+    #   referencing
+cfgv==3.4.0 ; python_full_version < '3.10'
+    # via pre-commit
+cfgv==3.5.0 ; python_full_version >= '3.10'
+    # via pre-commit
+diagrams==0.25.1
+    # via -r requirements.txt
+distlib==0.4.3
+    # via virtualenv
+filelock==3.19.1 ; python_full_version < '3.10'
+    # via
+    #   python-discovery
+    #   virtualenv
+filelock==3.32.4 ; python_full_version >= '3.10'
+    # via
+    #   python-discovery
+    #   virtualenv
+graphviz==0.20.3
+    # via diagrams
+identify==2.6.15 ; python_full_version < '3.10'
+    # via pre-commit
+identify==2.6.19 ; python_full_version >= '3.10'
+    # via pre-commit
+jinja2==3.1.6
+    # via diagrams
+jsonschema==4.25.1
+    # via -r requirements.txt
+jsonschema-specifications==2025.9.1
+    # via jsonschema
+markupsafe==3.0.3
+    # via jinja2
+nodeenv==1.10.0
+    # via pre-commit
+platformdirs==4.4.0 ; python_full_version < '3.10'
+    # via virtualenv
+platformdirs==4.11.4 ; python_full_version >= '3.10'
+    # via virtualenv
+pre-commit==4.3.0 ; python_full_version < '3.10'
+    # via diagrams
+pre-commit==4.6.2 ; python_full_version >= '3.10'
+    # via diagrams
+python-discovery==1.5.3
+    # via virtualenv
+pyyaml==6.0.3
+    # via pre-commit
+referencing==0.36.2 ; python_full_version < '3.10'
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
+referencing==0.37.0 ; python_full_version >= '3.10'
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
+rpds-py==0.27.1 ; python_full_version < '3.10'
+    # via
+    #   jsonschema
+    #   referencing
+rpds-py==0.30.0 ; python_full_version == '3.10.*'
+    # via
+    #   jsonschema
+    #   referencing
+rpds-py==2026.6.3 ; python_full_version >= '3.11'
+    # via
+    #   jsonschema
+    #   referencing
+typing-extensions==4.16.0 ; python_full_version < '3.13'
+    # via
+    #   referencing
+    #   virtualenv
+virtualenv==21.7.5
+    # via pre-commit

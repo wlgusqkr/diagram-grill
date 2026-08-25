@@ -13,6 +13,7 @@ class InstallablePackageBoundaryTests(unittest.TestCase):
         self.assertTrue((SKILL_ROOT / "references" / "diagram.schema.json").is_file())
         self.assertTrue((SKILL_ROOT / "scripts" / "diagram_grill_cli.py").is_file())
         self.assertTrue((SKILL_ROOT / "requirements.txt").is_file())
+        self.assertTrue((SKILL_ROOT / "requirements.lock").is_file())
         self.assertTrue((SKILL_ROOT / "LICENSE").is_file())
         self.assertTrue((SKILL_ROOT / "THIRD_PARTY_NOTICES.md").is_file())
 

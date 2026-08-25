@@ -15,7 +15,7 @@ Create a virtual environment and install the pinned Python dependencies:
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -r skills/diagram-grill/requirements.txt
+python -m pip install -r skills/diagram-grill/requirements.lock
 ```
 
 Run the test suite before submitting a change:
