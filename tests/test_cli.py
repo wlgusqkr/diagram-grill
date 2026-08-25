@@ -32,11 +32,25 @@ def fixture_spec():
         return json.load(fixture_file)
 
 
-def invoke(arguments):
+def invoke(arguments, *, enforce_boundary=False, target_root=None):
     stdout = io.StringIO()
     stderr = io.StringIO()
+    target = Path(target_root or tempfile.gettempdir()).resolve()
+    argv = ["--target-root", str(target), *arguments]
     with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-        status = cli.main(arguments)
+        if enforce_boundary:
+            status = cli.main(argv)
+        else:
+            with mock.patch.object(
+                cli, "_CLI_PATH", Path("/trusted-agent-skills/diagram-grill/scripts/diagram_grill_cli.py")
+            ), mock.patch.object(
+                cli, "_SKILL_ROOT", Path("/trusted-agent-skills/diagram-grill")
+            ), mock.patch.object(
+                cli,
+                "_python_runtime_paths",
+                return_value=(Path("/trusted-python/bin/python"), Path("/trusted-python/lib")),
+            ), mock.patch.object(cli, "_APPLICATION_IMPORTS_ACTIVE", True):
+                status = cli.main(argv)
     return status, stdout.getvalue(), stderr.getvalue()
 
 
@@ -47,16 +61,17 @@ class PreflightCommandTests(unittest.TestCase):
             "-I",
             "-S",
             str(CLI_PATH),
+            "--target-root",
+            str(Path(tempfile.gettempdir()).resolve()),
             "preflight",
             "--json",
         ]
 
         completed = subprocess.run(command, capture_output=True, text=True, check=False)
 
-        self.assertEqual(1, completed.returncode)
+        self.assertIn(completed.returncode, (0, 1))
         self.assertEqual("", completed.stderr)
         payload = json.loads(completed.stdout)
-        self.assertFalse(payload["ok"])
         self.assertEqual(
             ["python", "diagrams", "jsonschema", "graphviz_python", "dot"],
             [check["name"] for check in payload["checks"]],
@@ -108,18 +123,49 @@ class PreflightCommandTests(unittest.TestCase):
 
 
 class IsolatedEntrypointTests(unittest.TestCase):
+    def test_no_site_flag_is_mandatory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    str(CLI_PATH),
+                    "--target-root",
+                    str(Path(directory).resolve()),
+                    "preflight",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(2, completed.returncode)
+        self.assertEqual("", completed.stdout)
+        self.assertIn("isolated no-site mode is required", completed.stderr)
+        self.assertIn(" -I -S ", completed.stderr)
+
     def test_supported_invocation_does_not_write_bytecode_into_skill_package(self):
         with tempfile.TemporaryDirectory() as directory:
-            copied_skill = Path(directory) / "diagram-grill"
+            copied_skill = Path(directory) / "installed" / "diagram-grill"
             shutil.copytree(
                 SKILL_ROOT,
                 copied_skill,
                 ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
             )
+            target = Path(directory) / "target"
+            target.mkdir()
             copied_cli = (copied_skill / "scripts" / "diagram_grill_cli.py").resolve()
 
             completed = subprocess.run(
-                [sys.executable, "-I", str(copied_cli), "--help"],
+                [
+                    sys.executable,
+                    "-I",
+                    "-S",
+                    str(copied_cli),
+                    "--target-root",
+                    str(target.resolve()),
+                    "--help",
+                ],
                 cwd=directory,
                 capture_output=True,
                 text=True,
@@ -148,7 +194,15 @@ class IsolatedEntrypointTests(unittest.TestCase):
             environment["PYTHONPATH"] = str(payload_root)
 
             completed = subprocess.run(
-                [sys.executable, "-I", str(CLI_PATH), "--help"],
+                [
+                    sys.executable,
+                    "-I",
+                    "-S",
+                    str(CLI_PATH),
+                    "--target-root",
+                    str(payload_root.resolve()),
+                    "--help",
+                ],
                 cwd=directory,
                 env=environment,
                 capture_output=True,
@@ -161,9 +215,139 @@ class IsolatedEntrypointTests(unittest.TestCase):
             self.assertEqual("", completed.stderr)
             self.assertFalse(marker.exists())
 
+    def test_project_local_application_module_is_rejected_before_import(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory).resolve()
+            copied_skill = target / "project-skill"
+            shutil.copytree(
+                SKILL_ROOT,
+                copied_skill,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            )
+            marker = target / "application-imported.txt"
+            preflight = copied_skill / "scripts" / "diagram_grill" / "preflight.py"
+            preflight_source = preflight.read_text(encoding="utf-8")
+            preflight.write_text(
+                preflight_source.replace(
+                    "from __future__ import annotations\n",
+                    "from __future__ import annotations\n"
+                    "from pathlib import Path\n"
+                    "Path({!r}).write_text('executed', encoding='utf-8')\n".format(
+                        str(marker)
+                    ),
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            (target / "README.md").write_text("evidence\n", encoding="utf-8")
+            copied_cli = copied_skill / "scripts" / "diagram_grill_cli.py"
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-S",
+                    str(copied_cli.resolve()),
+                    "--target-root",
+                    str(target),
+                    "evidence",
+                    "--repo",
+                    str(target),
+                    "README.md",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(1, completed.returncode)
+            self.assertIn("installed skill path", completed.stderr)
+            self.assertFalse(marker.exists())
+
+    def test_venv_pth_is_never_executed_and_repository_venv_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            target = root / "target"
+            target.mkdir()
+            venv_root = root / "runtime" / ".venv"
+            created = subprocess.run(
+                [sys.executable, "-m", "venv", str(venv_root)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(0, created.returncode, created.stderr)
+            venv_python = (
+                venv_root / "Scripts" / "python.exe"
+                if os.name == "nt"
+                else venv_root / "bin" / "python"
+            )
+            purelib = subprocess.run(
+                [
+                    str(venv_python),
+                    "-I",
+                    "-S",
+                    "-c",
+                    "import sysconfig; print(sysconfig.get_paths()['purelib'])",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+            marker = root / "pth-executed.txt"
+            Path(purelib).mkdir(parents=True, exist_ok=True)
+            (Path(purelib) / "00-diagram-grill-test.pth").write_text(
+                "import pathlib; pathlib.Path({!r}).write_text('executed')\n".format(
+                    str(marker)
+                ),
+                encoding="utf-8",
+            )
+
+            external_runtime = subprocess.run(
+                [
+                    str(venv_python),
+                    "-I",
+                    "-S",
+                    str(CLI_PATH),
+                    "--target-root",
+                    str(target),
+                    "preflight",
+                    "--json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertIn(external_runtime.returncode, (0, 1))
+            self.assertEqual("", external_runtime.stderr)
+            self.assertIn("checks", json.loads(external_runtime.stdout))
+            self.assertFalse(marker.exists())
+
+            completed = subprocess.run(
+                [
+                    str(venv_python),
+                    "-I",
+                    "-S",
+                    str(CLI_PATH),
+                    "--target-root",
+                    str(root),
+                    "preflight",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(1, completed.returncode)
+            self.assertIn("Python runtime path", completed.stderr)
+            self.assertFalse(marker.exists())
+
     def test_target_repository_cannot_contain_the_installed_skill(self):
         status, stdout, stderr = invoke(
-            ["evidence", "--repo", str(REPOSITORY_ROOT), "README.md"]
+            ["evidence", "--repo", str(REPOSITORY_ROOT), "README.md"],
+            enforce_boundary=True,
+            target_root=REPOSITORY_ROOT,
         )
 
         self.assertEqual(1, status)
@@ -172,10 +356,14 @@ class IsolatedEntrypointTests(unittest.TestCase):
         self.assertIn("globally with --copy", stderr)
 
     def test_installed_skill_cannot_contain_the_target_workspace(self):
-        target = SKILL_ROOT / "nested-workspace"
-        with mock.patch.object(cli, "_SKILL_ROOT", SKILL_ROOT.resolve()):
+        target = SKILL_ROOT
+        with mock.patch.object(cli, "_CLI_PATH", CLI_PATH), mock.patch.object(
+            cli, "_SKILL_ROOT", SKILL_ROOT.resolve()
+        ):
             status, stdout, stderr = invoke(
-                ["build", "-", "--workspace", str(target)]
+                ["build", "-", "--workspace", str(target)],
+                enforce_boundary=True,
+                target_root=target,
             )
 
         self.assertEqual(1, status)
@@ -185,21 +373,30 @@ class IsolatedEntrypointTests(unittest.TestCase):
     def test_repository_local_python_interpreter_is_rejected(self):
         with mock.patch.object(
             cli,
+            "_CLI_PATH",
+            Path("/trusted-global-agent-skills/diagram-grill/scripts/diagram_grill_cli.py"),
+        ), mock.patch.object(
+            cli,
             "_SKILL_ROOT",
             Path("/trusted-global-agent-skills/diagram-grill"),
+        ), mock.patch.object(
+            cli,
+            "_PYTHON_EXECUTABLE",
+            REPOSITORY_ROOT / ".venv" / "bin" / "python",
+        ), mock.patch.object(
+            cli,
+            "_python_runtime_paths",
+            return_value=(REPOSITORY_ROOT / ".venv" / "bin" / "python",),
         ):
-            with mock.patch.object(
-                cli,
-                "_PYTHON_EXECUTABLE",
-                REPOSITORY_ROOT / ".venv" / "bin" / "python",
-            ):
-                status, stdout, stderr = invoke(
-                    ["evidence", "--repo", str(REPOSITORY_ROOT), "README.md"]
-                )
+            status, stdout, stderr = invoke(
+                ["evidence", "--repo", str(REPOSITORY_ROOT), "README.md"],
+                enforce_boundary=True,
+                target_root=REPOSITORY_ROOT,
+            )
 
         self.assertEqual(1, status)
         self.assertEqual("", stdout)
-        self.assertIn("Python interpreter that overlaps", stderr)
+        self.assertIn("Python runtime path that overlaps", stderr)
         self.assertIn("outside the target repository", stderr)
 
     @unittest.skipUnless(sys.platform == "darwin", "macOS path alias integration only")
@@ -213,7 +410,9 @@ class IsolatedEntrypointTests(unittest.TestCase):
             self.skipTest("workspace filesystem is case-sensitive")
 
         status, stdout, stderr = invoke(
-            ["evidence", "--repo", str(repository_alias), "README.md"]
+            ["evidence", "--repo", str(repository_alias), "README.md"],
+            enforce_boundary=True,
+            target_root=repository_alias,
         )
 
         self.assertEqual(1, status)
@@ -244,9 +443,9 @@ class IsolatedEntrypointTests(unittest.TestCase):
 
             self.assertEqual(2, completed.returncode)
             self.assertEqual("", completed.stdout)
-            self.assertIn("Python isolated mode is required", completed.stderr)
+            self.assertIn("Python isolated no-site mode is required", completed.stderr)
             self.assertIn(
-                "/absolute/path/to/trusted/python -I /absolute/path/",
+                "/absolute/path/to/trusted/python -I -S /absolute/path/",
                 completed.stderr,
             )
             self.assertNotIn("Traceback", completed.stderr)

@@ -88,7 +88,15 @@ class EvidenceCommandTests(unittest.TestCase):
 
             with redirect_stdout(stdout), redirect_stderr(stderr):
                 status = diagram_grill_cli.main(
-                    ["evidence", "--repo", str(root), "--json", "README.md"]
+                    [
+                        "--target-root",
+                        str(root),
+                        "evidence",
+                        "--repo",
+                        str(root),
+                        "--json",
+                        "README.md",
+                    ]
                 )
 
             self.assertEqual(0, status)

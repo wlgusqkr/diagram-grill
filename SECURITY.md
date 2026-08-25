@@ -27,8 +27,10 @@ Only a copied global installation whose canonical skill directory is outside
 the target repository and workspace is supported. Project-local installs are
 not a security boundary because repository-controlled files could replace the
 skill instructions or renderer. Invoke the CLI with a trusted absolute Python
-interpreter outside the target repository and Python isolated mode; never use a
-repository-local virtual environment.
+interpreter outside the target repository, `-I -S`, and the exact absolute
+`--target-root`; never use a repository-local virtual environment. The CLI
+checks runtime paths before importing its application package and adds checked
+package directories without processing `.pth` or `sitecustomize` startup code.
 
 The detailed runtime, evidence, rendering, and icon trust model is documented
 in

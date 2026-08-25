@@ -11,11 +11,14 @@ import sys
 sys.dont_write_bytecode = True
 
 
-if __name__ == "__main__" and not sys.flags.isolated:
+if __name__ == "__main__" and (
+    not sys.flags.isolated or not sys.flags.no_site
+):
     sys.stderr.write(
-        "diagram-grill: Python isolated mode is required.\n"
-        "Run: /absolute/path/to/trusted/python -I "
-        "/absolute/path/to/diagram_grill_cli.py <command> [options]\n"
+        "diagram-grill: Python isolated no-site mode is required.\n"
+        "Run: /absolute/path/to/trusted/python -I -S "
+        "/absolute/path/to/diagram_grill_cli.py --target-root "
+        "/absolute/path/to/target <command> [options]\n"
     )
     raise SystemExit(2)
 
@@ -23,33 +26,131 @@ if __name__ == "__main__" and not sys.flags.isolated:
 import argparse
 import json
 import math
+import os
 from pathlib import Path
+import stat
+import sysconfig
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 
-if __name__ == "__main__":
-    _cli_path = Path(__file__)
-    if not _cli_path.is_absolute():
-        sys.stderr.write(
-            "diagram-grill: an absolute CLI script path is required.\n"
-            "Run: /absolute/path/to/trusted/python -I "
-            "/absolute/path/to/diagram_grill_cli.py <command> [options]\n"
-        )
-        raise SystemExit(2)
-    # Isolated mode intentionally omits the script directory from sys.path.
-    # Add only the canonical directory containing this trusted skill package.
-    sys.path.insert(0, str(_cli_path.resolve(strict=True).parent))
+if __name__ == "__main__" and not Path(__file__).is_absolute():
+    sys.stderr.write(
+        "diagram-grill: an absolute CLI script path is required.\n"
+        "Run: /absolute/path/to/trusted/python -I -S "
+        "/absolute/path/to/diagram_grill_cli.py --target-root "
+        "/absolute/path/to/target <command> [options]\n"
+    )
+    raise SystemExit(2)
 
 
-from diagram_grill.errors import DiagramValidationError, ValidationIssue
-from diagram_grill.preflight import run_preflight
-
-
-_SKILL_ROOT = Path(__file__).resolve(strict=True).parents[1]
-_PYTHON_EXECUTABLE = Path(sys.executable).resolve(strict=True)
+_CLI_PATH = Path(__file__).absolute()
+_SKILL_ROOT = _CLI_PATH.parents[1]
+_PYTHON_EXECUTABLE = Path(sys.executable).absolute()
+_APPLICATION_IMPORTS_ACTIVE = False
 
 
 MAX_STDIN_SPEC_BYTES = 1024 * 1024
+
+
+def _executable_environment_root() -> Optional[Path]:
+    # Before Python 3.14, ``-S`` can leave sys.prefix at the base interpreter.
+    # Recognize a normal venv from its executable layout without importing site
+    # or evaluating pyvenv.cfg.
+    executable = Path(sys.executable).absolute()
+    if executable.parent.name.casefold() in ("bin", "scripts"):
+        candidate = executable.parent.parent
+        configuration = candidate / "pyvenv.cfg"
+        try:
+            result = configuration.lstat()
+        except OSError:
+            pass
+        else:
+            if stat.S_ISREG(result.st_mode):
+                return candidate
+    return None
+
+
+def _environment_roots() -> Sequence[Path]:
+    selected: List[Path] = []
+    values: List[Any] = [
+        _executable_environment_root(),
+        sys.prefix,
+        sys.exec_prefix,
+        sys.base_prefix,
+        sys.base_exec_prefix,
+    ]
+    for value in values:
+        if not value:
+            continue
+        candidate = Path(value).absolute()
+        if candidate not in selected:
+            selected.append(candidate)
+    return tuple(selected)
+
+
+def _application_package_paths() -> Sequence[Path]:
+    """Return package directories without processing executable ``.pth`` files."""
+
+    path_sets = []
+    scheme = "nt" if os.name == "nt" else "posix_prefix"
+    environment_root = _executable_environment_root()
+    if environment_root is not None:
+        variables = {
+            "base": str(environment_root),
+            "platbase": str(environment_root),
+            "installed_base": str(environment_root),
+            "installed_platbase": str(environment_root),
+        }
+        path_sets.append(sysconfig.get_paths(scheme=scheme, vars=variables))
+    path_sets.append(sysconfig.get_paths())
+    selected: List[Path] = []
+    for paths in path_sets:
+        for name in ("purelib", "platlib"):
+            value = paths.get(name)
+            if not value:
+                continue
+            candidate = Path(value).absolute()
+            if candidate not in selected:
+                selected.append(candidate)
+    return tuple(selected)
+
+
+def _python_runtime_paths() -> Sequence[Path]:
+    selected: List[Path] = []
+    values: List[Any] = [
+        _PYTHON_EXECUTABLE,
+        getattr(sys, "_base_executable", None),
+    ]
+    values.extend(_environment_roots())
+    values.extend(_application_package_paths())
+    for value in values:
+        if not value:
+            continue
+        candidate = Path(value).absolute()
+        if candidate not in selected:
+            selected.append(candidate)
+    return tuple(selected)
+
+
+def _activate_application_imports() -> None:
+    """Expose only checked skill and package roots; never execute site hooks."""
+
+    global _APPLICATION_IMPORTS_ACTIVE
+    if _APPLICATION_IMPORTS_ACTIVE:
+        return
+    for package_path in _application_package_paths():
+        if package_path.is_dir() and str(package_path) not in sys.path:
+            sys.path.append(str(package_path))
+    scripts_root = _CLI_PATH.resolve(strict=True).parent
+    if str(scripts_root) not in sys.path:
+        sys.path.insert(0, str(scripts_root))
+    _APPLICATION_IMPORTS_ACTIVE = True
+
+
+def run_preflight(*args: Any, **kwargs: Any) -> Any:
+    from diagram_grill.preflight import run_preflight as implementation
+
+    return implementation(*args, **kwargs)
 
 
 def search_node_catalog(*args: Any, **kwargs: Any) -> Any:
@@ -88,6 +189,13 @@ def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="diagram-grill",
         description="Validate and render approved architecture diagram specifications.",
+    )
+    parser.add_argument(
+        "--target-root",
+        type=Path,
+        required=True,
+        metavar="PATH",
+        help="Absolute repository or workspace root treated as untrusted input.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -156,7 +264,7 @@ def _write_json(payload: Mapping[str, Any]) -> None:
     print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
 
 
-def _issue_payload(issue: ValidationIssue) -> Dict[str, str]:
+def _issue_payload(issue: Any) -> Dict[str, str]:
     return {
         "code": issue.code,
         "path": issue.path,
@@ -172,9 +280,12 @@ def _failure_payload(error: Exception) -> Dict[str, Any]:
             "message": str(error),
         },
     }
-    if isinstance(error, DiagramValidationError):
+    issues = getattr(error, "issues", None)
+    if type(error).__name__ == "DiagramValidationError" and isinstance(
+        issues, (list, tuple)
+    ):
         payload["error"]["issues"] = [
-            _issue_payload(issue) for issue in error.issues
+            _issue_payload(issue) for issue in issues
         ]
     return payload
 
@@ -205,28 +316,70 @@ def _paths_overlap(first: Path, second: Path) -> bool:
     return False
 
 
-def _require_external_skill_install(args: argparse.Namespace) -> None:
-    target = None
-    if args.command == "evidence":
-        target = args.repo
-    elif args.command == "build":
-        target = args.workspace
-    if target is None:
-        return
+def _path_forms(path: Path) -> Sequence[Path]:
+    lexical = Path(path).absolute()
+    forms = [lexical]
+    try:
+        resolved = lexical.resolve(strict=True)
+    except (FileNotFoundError, OSError):
+        resolved = lexical.resolve(strict=False)
+    if resolved not in forms:
+        forms.append(resolved)
+    return tuple(forms)
 
-    canonical_target = Path(target).resolve(strict=False)
-    if _paths_overlap(_SKILL_ROOT, canonical_target):
+
+def _operation_targets(args: argparse.Namespace) -> Sequence[Path]:
+    target_root = Path(args.target_root)
+    if not target_root.is_absolute():
+        raise RuntimeError("--target-root must be an absolute path")
+    try:
+        target_result = target_root.lstat()
+    except OSError as error:
+        raise RuntimeError("--target-root must be an existing real directory") from error
+    if stat.S_ISLNK(target_result.st_mode) or not stat.S_ISDIR(
+        target_result.st_mode
+    ):
+        raise RuntimeError("--target-root must be an existing real directory")
+
+    targets = [target_root]
+    if args.command == "evidence":
+        targets.append(Path(args.repo))
+    elif args.command == "build":
+        targets.append(Path(args.workspace))
+        if args.spec != Path("-"):
+            targets.append(Path(args.spec).absolute().parent)
+    elif args.command in ("validate", "brief"):
+        targets.append(Path(args.spec).absolute().parent)
+    return tuple(targets)
+
+
+def _overlaps_any(first: Path, targets: Sequence[Path]) -> bool:
+    return any(
+        _paths_overlap(first_form, target_form)
+        for first_form in _path_forms(first)
+        for target in targets
+        for target_form in _path_forms(target)
+    )
+
+
+def _require_external_skill_install(args: argparse.Namespace) -> None:
+    targets = _operation_targets(args)
+    skill_paths = (_CLI_PATH, _SKILL_ROOT)
+    if any(_overlaps_any(path, targets) for path in skill_paths):
         raise RuntimeError(
             "Refusing an installed skill path that overlaps the target {}: {}. "
             "Install diagram-grill globally with --copy outside the target "
             "repository and workspace.".format(args.command, _SKILL_ROOT)
         )
-    if _paths_overlap(_PYTHON_EXECUTABLE, canonical_target):
-        raise RuntimeError(
-            "Refusing a Python interpreter that overlaps the target {}: {}. "
-            "Use a trusted absolute interpreter outside the target repository "
-            "and workspace.".format(args.command, _PYTHON_EXECUTABLE)
-        )
+    for runtime_path in _python_runtime_paths():
+        if _overlaps_any(runtime_path, targets):
+            raise RuntimeError(
+                "Refusing a Python runtime path that overlaps the target {}: {}. "
+                "Use a trusted absolute interpreter and dependency environment "
+                "outside the target repository and workspace.".format(
+                    args.command, runtime_path
+                )
+            )
 
 
 def _check_payload(check: Any) -> Dict[str, Any]:
@@ -560,12 +713,7 @@ def _command_build(args: argparse.Namespace) -> int:
     return 0
 
 
-_OPERATIONAL_ERRORS = (
-    DiagramValidationError,
-    json.JSONDecodeError,
-    OSError,
-    RuntimeError,
-)
+_OPERATIONAL_ERRORS = (json.JSONDecodeError, OSError, RuntimeError)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -573,6 +721,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
     try:
         _require_external_skill_install(args)
+        _activate_application_imports()
         return int(args.handler(args))
     except _OPERATIONAL_ERRORS as error:
         return _report_failure(error, bool(getattr(args, "json", False)))

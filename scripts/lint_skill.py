@@ -12,7 +12,7 @@ from typing import Dict, List
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = REPOSITORY_ROOT / "skills" / "diagram-grill"
 ALLOWED_TOP_LEVEL_KEYS = frozenset(
-    ("name", "description", "license", "metadata", "disable-model-invocation")
+    ("name", "description", "license", "compatibility", "metadata", "allowed-tools")
 )
 
 
@@ -57,8 +57,8 @@ def collect_issues(root: Path = SKILL_ROOT) -> List[str]:
         issues.append("frontmatter name must be diagram-grill")
     if not values.get("description"):
         issues.append("frontmatter description is required")
-    if values.get("disable-model-invocation") != "true":
-        issues.append("disable-model-invocation must be true for Claude Code and Cursor")
+    if "explicitly invoked" not in values.get("description", "").casefold():
+        issues.append("description must require explicit invocation")
     if len(skill_text.splitlines()) >= 500:
         issues.append("SKILL.md must stay under 500 lines")
 

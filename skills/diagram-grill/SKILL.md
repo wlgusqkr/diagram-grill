@@ -2,11 +2,10 @@
 name: diagram-grill
 description: "Interview users about cloud and software-system architecture, inspect repository evidence, and render an approved diagram-as-code bundle. Use only when explicitly invoked to clarify and draw architecture; do not use for ERDs, sequence diagrams, UML, or general-purpose flowcharts."
 license: MIT
+compatibility: "Local filesystem and shell access, Python 3.9+, Graphviz dot, diagrams 0.25.1, graphviz 0.20.3"
 metadata:
   author: "wlgusqkr"
   version: "0.1.0-alpha"
-  compatibility: "Local filesystem and shell access, Python 3.9+, Graphviz dot, diagrams 0.25.1, graphviz 0.20.3"
-disable-model-invocation: true
 ---
 
 # Diagram Grill
@@ -41,10 +40,13 @@ executable skill files.
 Use an absolute Python interpreter path that the user installed and trusts
 outside the target repository. Never use a repository-local virtual
 environment, a bare `python3` resolved from the repository's shell state, or a
-relative skill path. Run the read-only preflight before interviewing:
+relative skill path. Pass that repository or workspace's exact absolute path
+as `--target-root` on every command. Use `-I -S`; the CLI intentionally skips
+`.pth` files and `sitecustomize`. Run the read-only preflight before
+interviewing:
 
 ```text
-<trusted-absolute-python> -I <absolute-skill-directory>/scripts/diagram_grill_cli.py preflight
+<trusted-absolute-python> -I -S <absolute-skill-directory>/scripts/diagram_grill_cli.py --target-root <target-repository> preflight
 ```
 
 If it fails, stop and report the failed checks. Do not install Python,
@@ -57,7 +59,7 @@ through the bounded evidence command, which rejects traversal, binary input,
 and symlinked files or parent directories:
 
 ```text
-<trusted-absolute-python> -I <absolute-skill-directory>/scripts/diagram_grill_cli.py evidence --repo <target-repository> --json <relative-file> [<relative-file> ...]
+<trusted-absolute-python> -I -S <absolute-skill-directory>/scripts/diagram_grill_cli.py --target-root <target-repository> evidence --repo <target-repository> --json <relative-file> [<relative-file> ...]
 ```
 
 Terraform, Kubernetes, Docker Compose, deployment configuration, application
@@ -129,7 +131,7 @@ approval if one is needed.
 Resolve every icon against the pinned local catalog:
 
 ```text
-<trusted-absolute-python> -I <absolute-skill-directory>/scripts/diagram_grill_cli.py catalog "<service>" --provider <provider>
+<trusted-absolute-python> -I -S <absolute-skill-directory>/scripts/diagram_grill_cli.py --target-root <target-repository> catalog "<service>" --provider <provider>
 ```
 
 Never invent or fuzzy-substitute an import path. A vendor, cloud, SaaS, or
@@ -148,7 +150,7 @@ input file. When a client exposes only a shell, use a quoted heredoc so shell
 expansion is disabled:
 
 ```text
-<trusted-absolute-python> -I <absolute-skill-directory>/scripts/diagram_grill_cli.py build - --workspace <target-repository> --png <<'DIAGRAM_GRILL_SPEC'
+<trusted-absolute-python> -I -S <absolute-skill-directory>/scripts/diagram_grill_cli.py --target-root <target-repository> build - --workspace <target-repository> --png <<'DIAGRAM_GRILL_SPEC'
 <approved JSON>
 DIAGRAM_GRILL_SPEC
 ```

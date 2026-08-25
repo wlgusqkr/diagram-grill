@@ -37,10 +37,6 @@ class SkillEntrypointContractTests(ContractAssertionsMixin, unittest.TestCase):
         cls.openai_yaml = read_text(OPENAI_YAML_PATH)
 
     def test_invocation_is_explicit_only_in_both_metadata_surfaces(self):
-        self.assert_matches(
-            self.skill,
-            r"^disable-model-invocation:\s*true\s*$",
-        )
         self.assert_contains_terms(self.skill, "explicitly invokes", "manual-only")
         self.assert_matches(
             self.openai_yaml,
@@ -50,6 +46,26 @@ class SkillEntrypointContractTests(ContractAssertionsMixin, unittest.TestCase):
             self.openai_yaml,
             r"^\s*default_prompt:.*\$diagram-grill.*$",
         )
+
+    def test_frontmatter_uses_portable_agent_skills_fields(self):
+        frontmatter = self.skill.split("---", 2)[1]
+        top_level_keys = {
+            line.split(":", 1)[0]
+            for line in frontmatter.splitlines()
+            if line and not line[0].isspace() and ":" in line
+        }
+        self.assertLessEqual(
+            top_level_keys,
+            {
+                "name",
+                "description",
+                "license",
+                "compatibility",
+                "metadata",
+                "allowed-tools",
+            },
+        )
+        self.assertNotIn("disable-model-invocation", frontmatter)
 
     def test_scope_is_narrow_and_out_of_scope_types_are_named(self):
         self.assert_contains_terms(

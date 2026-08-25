@@ -39,7 +39,9 @@ target repository, a trusted canonical Graphviz `dot` outside the workspace
 and repository, `diagrams==0.25.1`,
 `graphviz==0.20.3`, and the other pinned Python dependencies. Never use a
 repository-local virtual environment or a bare interpreter selected by the
-repository's shell state. If a prerequisite is missing or has the wrong
+repository's shell state. Invoke every CLI command with `-I -S` and the exact
+absolute repository or workspace as `--target-root`; do not process `.pth`
+files or `sitecustomize`. If a prerequisite is missing or has the wrong
 version, stop and provide installation instructions; do not install it.
 
 Start with one architectural question the diagram must answer. Record the

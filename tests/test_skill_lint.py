@@ -18,7 +18,7 @@ class SkillLintTests(unittest.TestCase):
     def test_repository_skill_contract_is_valid(self):
         self.assertEqual([], LINTER.collect_issues(SKILL_ROOT))
 
-    def test_manual_invocation_extensions_are_required(self):
+    def test_manual_invocation_contract_is_required(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             (root / "agents").mkdir()
@@ -33,7 +33,7 @@ class SkillLintTests(unittest.TestCase):
 
             issues = LINTER.collect_issues(root)
 
-        self.assertTrue(any("disable-model-invocation" in issue for issue in issues))
+        self.assertTrue(any("explicit invocation" in issue for issue in issues))
         self.assertTrue(any("implicit invocation" in issue for issue in issues))
 
 

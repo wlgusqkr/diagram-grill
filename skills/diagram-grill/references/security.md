@@ -53,12 +53,18 @@ compromised local runtime is outside the guarantees of this skill.
   case-variant aliases. Compare existing path components by filesystem identity
   rather than trusting path-string equality alone.
 - Invoke the CLI only with a user-trusted absolute Python interpreter outside
-  the target repository, Python isolated mode, and an absolute installed-skill
-  path. Never select a repository-local virtual environment or a bare
-  interpreter resolved from repository-controlled shell state. Python itself,
-  its environment, startup hooks, and installed pinned dependencies are trusted
-  prerequisites; isolated mode does not establish their provenance. The CLI
-  disables bytecode writes before importing skill modules.
+  the target repository, `-I -S`, the mandatory absolute `--target-root`, and
+  an absolute installed-skill path. Never select a repository-local virtual
+  environment or a bare interpreter resolved from repository-controlled shell
+  state. Before importing any skill module, the CLI compares the lexical and
+  resolved CLI, skill, interpreter, prefix, and Python package paths against
+  the target. It then adds the checked `purelib` and `platlib` directories
+  directly; it never processes `.pth` files or imports `sitecustomize`.
+  Python itself and the selected pinned dependency environment remain trusted
+  prerequisites; these startup controls do not establish their provenance.
+  A modified CLI cannot prove its own authenticity, so resolve the copied
+  external installation before execution. The CLI disables bytecode writes
+  before importing skill modules.
 - Resolve `dot` once to its canonical executable, reject relative candidates
   and candidates inside the workspace or enclosing repository, and run its
   version check through that exact path. Record its device, inode, mode, size,
