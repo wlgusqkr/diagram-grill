@@ -1,0 +1,86 @@
+{
+  "$schema": "../../../references/diagram.schema.json",
+  "schema_version": "1.0",
+  "title": "Checkout architecture",
+  "slug": "checkout-architecture",
+  "direction": "LR",
+  "approval": {
+    "status": "approved"
+  },
+  "groups": [
+    {
+      "id": "cloud",
+      "label": "Cloud"
+    },
+    {
+      "id": "production",
+      "label": "Production",
+      "parent": "cloud"
+    },
+    {
+      "id": "services",
+      "label": "Services",
+      "parent": "production"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "api",
+      "label": "Checkout API",
+      "icon": "diagrams.aws.compute.ECS",
+      "group": "services",
+      "status": "observed",
+      "evidence": [
+        {
+          "kind": "file",
+          "path": "infra/service.tf",
+          "line_start": 12,
+          "line_end": 18
+        }
+      ]
+    },
+    {
+      "id": "database",
+      "label": "Orders",
+      "icon": "diagrams.aws.database.RDS",
+      "group": "production",
+      "status": "user-approved",
+      "evidence": [
+        {
+          "kind": "decision",
+          "decision_id": "database-choice"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "api-to-database",
+      "from": "api",
+      "to": "database",
+      "type": "data",
+      "label": "writes orders",
+      "evidence": [
+        {
+          "kind": "decision",
+          "decision_id": "database-choice"
+        }
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "database-choice",
+      "question": "Where are orders stored?",
+      "answer": "A private PostgreSQL-compatible RDS database."
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "single-region",
+      "statement": "The overview shows one deployment region.",
+      "status": "user-approved",
+      "evidence": []
+    }
+  ]
+}
