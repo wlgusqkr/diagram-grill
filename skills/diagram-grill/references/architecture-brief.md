@@ -97,7 +97,7 @@ File evidence maps to `kind`, `path`, optional `line_start`, and optional
 - Catalog: installed diagrams==0.25.1 exact paths only
 - Group depth: maximum 3
 - Existing target: create new / explicitly update <bundle>
-- Temporary work: approved temporary spec in renderer-owned hidden staging directly under diagrams/
+- Temporary work: approved JSON enters over stdin; renderer-created spec exists only in renderer-owned hidden staging directly under diagrams/
 - Persistence boundary: bundle outputs only under diagrams/<slug>/; never an arbitrary path
 - Visual QA: inspect SVG and optional PNG; at most one layout-only retry
 - Direction retry: preserve a user override; an agent-selected direction may switch LR to TB or TB to LR

@@ -14,6 +14,9 @@ from diagram_grill.errors import DiagramValidationError, ValidationIssue
 from diagram_grill.preflight import run_preflight
 
 
+MAX_STDIN_SPEC_BYTES = 1024 * 1024
+
+
 def search_node_catalog(*args: Any, **kwargs: Any) -> Any:
     from diagram_grill.catalog import search_node_catalog as implementation
 
@@ -94,7 +97,12 @@ def create_parser() -> argparse.ArgumentParser:
     build = commands.add_parser(
         "build", help="Build an approved SVG bundle and optionally include PNG."
     )
-    build.add_argument("spec", type=Path, metavar="SPEC")
+    build.add_argument(
+        "spec",
+        type=Path,
+        metavar="SPEC",
+        help="Approved JSON file, or '-' to read approved JSON from stdin.",
+    )
     build.add_argument("--workspace", type=Path, default=Path("."), metavar="PATH")
     build.add_argument("--png", action="store_true", help="Also render diagram.png.")
     build.add_argument(
@@ -435,10 +443,27 @@ def _command_brief(args: argparse.Namespace) -> int:
     return 0
 
 
+def _read_stdin_spec() -> Any:
+    stream = getattr(sys.stdin, "buffer", sys.stdin)
+    payload = stream.read(MAX_STDIN_SPEC_BYTES + 1)
+    if isinstance(payload, str):
+        payload_bytes = payload.encode("utf-8")
+    else:
+        payload_bytes = payload
+    if len(payload_bytes) > MAX_STDIN_SPEC_BYTES:
+        raise ValueError(
+            "stdin specification exceeds the {}-byte limit".format(
+                MAX_STDIN_SPEC_BYTES
+            )
+        )
+    return json.loads(payload_bytes.decode("utf-8"))
+
+
 def _command_build(args: argparse.Namespace) -> int:
     formats = ("svg", "png") if args.png else ("svg",)
+    spec_source: Any = _read_stdin_spec() if args.spec == Path("-") else args.spec
     bundle = build_bundle(
-        args.spec,
+        spec_source,
         args.workspace,
         formats=formats,
         update=args.update,

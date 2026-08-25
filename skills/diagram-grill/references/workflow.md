@@ -158,12 +158,18 @@ Create the bundle under `diagrams/<slug>/` with:
   artifact hashes, formats, and warnings, without host-specific absolute paths;
 - `diagram.png` only when available or useful for visual QA.
 
-After approval, the renderer may materialize the approved temporary spec and
-work in a renderer-owned hidden staging directory directly under `diagrams/`.
-Staging is transient and is not a second bundle or a user-selectable output
-path. Persistent bundle outputs belong only under `diagrams/<slug>/`; never
-write them to an arbitrary path. Atomically promote verified staging output to
-that approved bundle path.
+After approval, pass the approved JSON to `diagram_grill_cli.py build -` over
+process stdin without creating a standalone input spec. If a shell heredoc is
+needed, quote its delimiter to disable expansion. The renderer may
+materialize the approved spec only in its own hidden staging directory directly
+under `diagrams/`. Staging is transient and is not a second bundle or a
+user-selectable output path. Persistent bundle outputs belong only under
+`diagrams/<slug>/`; never write them to an arbitrary path. Atomically promote
+verified staging output to that approved bundle path.
+
+The client, shell, or operating system may buffer stdin internally. That
+implementation detail is outside the renderer's persistent-output guarantee;
+do not claim that every caller avoids transient system storage.
 
 Existing bundles are immutable by default. Replace one only when the user
 explicitly requests an update to that bundle. An approval authorizes the

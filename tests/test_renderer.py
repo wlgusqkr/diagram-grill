@@ -147,6 +147,7 @@ class RendererTests(unittest.TestCase):
             "spec_path": self.spec_path,
             "workspace_root": self.workspace,
             "load_and_validate_func": self.loader,
+            "validate_func": lambda spec, mode: None,
             "preflight_func": self.preflight,
             "compile_func": self.compiler(),
             "command_runner": self.runner(),
@@ -194,6 +195,17 @@ class RendererTests(unittest.TestCase):
             manifest["artifacts"]["diagram.svg"]["sha256"],
         )
         self.assertEqual(manifest_bytes, RENDERER._canonical_json(manifest))
+        self.assertEqual([], self.hidden_work_directories())
+
+    def test_in_memory_spec_builds_without_loading_an_input_file(self):
+        target = self.build(
+            spec_path=self.spec,
+            load_and_validate_func=mock.Mock(
+                side_effect=AssertionError("path loader must not be called")
+            ),
+        )
+
+        self.assertEqual(self.spec, json.loads((target / "diagram.json").read_text()))
         self.assertEqual([], self.hidden_work_directories())
 
     def test_collision_refuses_to_change_existing_bundle(self):

@@ -1,6 +1,7 @@
 import copy
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -11,6 +12,7 @@ sys.path.insert(0, str(SKILL_ROOT / "scripts"))
 
 from diagram_grill.errors import DiagramValidationError  # noqa: E402
 from diagram_grill.validation import (  # noqa: E402
+    MAX_SPEC_BYTES,
     SCHEMA,
     collect_validation_issues,
     load_and_validate,
@@ -42,6 +44,14 @@ class SchemaValidationTests(unittest.TestCase):
     def test_valid_fixture_passes_render_validation(self):
         spec = load_and_validate(FIXTURE_PATH, mode="render")
         self.assertEqual("checkout-architecture", spec["slug"])
+
+    def test_file_loader_rejects_oversized_specs_before_parsing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            oversized = Path(directory) / "oversized.json"
+            oversized.write_bytes(b" " * (MAX_SPEC_BYTES + 1))
+
+            with self.assertRaisesRegex(ValueError, "exceeds the"):
+                load_and_validate(oversized, mode="render")
 
     def test_unknown_fields_are_rejected_at_every_level(self):
         cases = []

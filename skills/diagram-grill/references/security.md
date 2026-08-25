@@ -14,7 +14,7 @@ through inspection, approval, compilation, rendering, and update.
 | Installed `diagrams==0.25.1`, `graphviz==0.20.3`, other pinned Python dependencies, and Graphviz `dot` | Locally installed runtime with version, canonical-path, identity, and content-hash checks | Use only after read-only preflight succeeds |
 | Exact local node catalog | Allowlist | Resolve only catalogued `Node` subclasses with exact import paths |
 | Generated SVG, PNG, logs, and subprocess output | Untrusted renderer output until verified | Parse and inspect before promoting the bundle |
-| Renderer-owned hidden staging directly under `diagrams/` | Transient write boundary after approval | Hold the approved temporary spec and candidate render only until validation and promotion finish |
+| Renderer-owned hidden staging directly under `diagrams/` | Transient write boundary after approval | Hold the stdin-supplied approved spec and candidate render only until validation and promotion finish |
 | `diagrams/<slug>/` | Authorized output boundary | Create or explicitly update only the approved bundle |
 
 Version checks establish compatibility, not cryptographic provenance. A
@@ -109,9 +109,16 @@ compromised local runtime is outside the guarantees of this skill.
 
 - Validate collection limits, IDs, references, group depth, exact icon paths,
   evidence paths, approval state, and resolved assumptions before compilation.
-- Only after approval, materialize the approved temporary spec and render in a
-  bounded, renderer-owned hidden staging directory directly under `diagrams/`,
-  with a minimal environment and timeout.
+- In the manual skill workflow, only after approval, accept at most 1 MiB of
+  approved JSON over stdin,
+  materialize it only in a bounded, renderer-owned hidden staging directory
+  directly under `diagrams/`, and render with a minimal environment and
+  timeout. The agent and CLI do not create a standalone input spec. A client,
+  shell, or operating system may buffer stdin internally; that transient
+  implementation detail is outside the persistent-output guarantee.
+- Direct operators may pass a local spec path to the CLI or Python API. The
+  default loader applies the same 1 MiB limit and render-mode validation, but
+  this path mode is not used by the manual skill workflow.
 - On POSIX, start preflight `dot` and the generated Python renderer in new
   sessions. On timeout, terminate and kill their process groups, then perform
   only a bounded pipe drain. Close inherited pipes when that drain expires so a

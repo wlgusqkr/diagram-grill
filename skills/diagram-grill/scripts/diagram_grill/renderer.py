@@ -19,7 +19,7 @@ import uuid
 import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple, Union
 from urllib.parse import unquote, urlsplit
 
 
@@ -136,6 +136,7 @@ class ArtifactValidationError(BundleBuildError):
 
 
 Loader = Callable[..., Mapping[str, Any]]
+Validator = Callable[..., None]
 PreflightChecker = Callable[[], Any]
 Compiler = Callable[..., Any]
 CommandRunner = Callable[..., subprocess.CompletedProcess]
@@ -166,23 +167,26 @@ class _VerifiedDot:
 
 
 def build_bundle(
-    spec_path: Path,
+    spec_path: Union[Path, Mapping[str, Any]],
     workspace_root: Path,
     formats: Sequence[str] = ("svg",),
     update: bool = False,
     timeout_seconds: float = 30,
     *,
     load_and_validate_func: Optional[Loader] = None,
+    validate_func: Optional[Validator] = None,
     preflight_func: Optional[PreflightChecker] = None,
     compile_func: Optional[Compiler] = None,
     command_runner: Optional[CommandRunner] = None,
     base_environment: Optional[Mapping[str, str]] = None,
 ) -> Path:
-    """Render ``spec_path`` into ``workspace_root/diagrams/<slug>``.
+    """Render an approved spec into ``workspace_root/diagrams/<slug>``.
 
     Every generated file is written and verified in a staging directory under
     ``workspace_root/diagrams``. The target is changed only after the complete
-    bundle is valid. Existing targets require ``update=True``.
+    bundle is valid. ``spec_path`` may be a JSON path or an in-memory mapping;
+    the latter lets the CLI accept stdin without persisting a separate input
+    file. Existing targets require ``update=True``.
     """
 
     workspace = Path(workspace_root).resolve()
@@ -198,16 +202,20 @@ def build_bundle(
     ):
         raise ValueError("timeout_seconds must be a finite number greater than zero")
 
-    input_path = Path(spec_path)
-    if not input_path.is_absolute():
-        input_path = workspace / input_path
-
     loader = load_and_validate_func or _default_loader()
     preflight_checker = preflight_func or _default_preflight_checker(workspace)
     compiler = compile_func or _default_compiler()
     runner = command_runner
 
-    spec = loader(input_path, mode="render")
+    if isinstance(spec_path, Mapping):
+        validator = validate_func or _default_validator()
+        validator(spec_path, mode="render")
+        spec = spec_path
+    else:
+        input_path = Path(spec_path)
+        if not input_path.is_absolute():
+            input_path = workspace / input_path
+        spec = loader(input_path, mode="render")
     slug = _validated_slug(spec)
     selected_formats = _normalize_formats(formats)
 
@@ -329,6 +337,12 @@ def _default_loader() -> Loader:
     from .validation import load_and_validate
 
     return load_and_validate
+
+
+def _default_validator() -> Validator:
+    from .validation import validate_spec
+
+    return validate_spec
 
 
 def _default_preflight_checker(workspace: Path) -> PreflightChecker:

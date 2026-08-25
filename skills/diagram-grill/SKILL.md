@@ -106,7 +106,7 @@ topology. Do not request approval while a blocking unknown remains.
 
 ### 5. Create the constrained IR after approval
 
-After approval, create schema-version `1.0` JSON in a temporary file. Use
+After approval, compose schema-version `1.0` JSON in memory. Use
 [references/diagram.schema.json](references/diagram.schema.json) as the
 contract and [references/ir.md](references/ir.md) as the field guide.
 
@@ -126,23 +126,24 @@ provider icon, use exactly `diagrams.generic.blank.Blank`, set
 `icon_fallback_for`, and preserve the visible warning. Never use
 `diagrams.custom`.
 
-Validate before building:
-
-```text
-python3 <skill-directory>/scripts/diagram_grill_cli.py validate <temporary-spec.json> --mode render
-```
-
 ### 6. Build without silent overwrites
 
-Build each approved diagram into `diagrams/<slug>/`:
+Send the approved JSON directly to process stdin without creating a separate
+input file. When a client exposes only a shell, use a quoted heredoc so shell
+expansion is disabled:
 
 ```text
-python3 <skill-directory>/scripts/diagram_grill_cli.py build <temporary-spec.json> --workspace <target-repository> --png
+python3 <skill-directory>/scripts/diagram_grill_cli.py build - --workspace <target-repository> --png <<'DIAGRAM_GRILL_SPEC'
+<approved JSON>
+DIAGRAM_GRILL_SPEC
 ```
 
-The bundle contains canonical `diagram.json`, generated `diagram.py`,
+The build command performs render-mode validation before it writes. The bundle
+contains canonical `diagram.json`, generated `diagram.py`,
 `diagram.svg`, optional `diagram.png`, and `render-manifest.json`. Never pass
 `--update` unless the user explicitly asked to update that existing bundle.
+The client, shell, or operating system may buffer stdin internally; do not
+claim control over that implementation detail.
 
 ### 7. Verify the rendered image
 

@@ -213,6 +213,47 @@ class ValidateAndBriefCommandTests(unittest.TestCase):
 
 
 class BuildCommandTests(unittest.TestCase):
+    def test_build_reads_approved_json_from_stdin_without_an_input_path(self):
+        bundle = Path("/workspace/diagrams/checkout-architecture")
+        stdin = io.StringIO(json.dumps(fixture_spec()))
+        with mock.patch.object(cli, "build_bundle", return_value=bundle) as build:
+            with mock.patch.object(sys, "stdin", stdin):
+                status, stdout, stderr = invoke(
+                    ["build", "-", "--workspace", "/workspace", "--png"]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual("", stderr)
+        self.assertIn("Built diagram bundle", stdout)
+        build.assert_called_once_with(
+            fixture_spec(),
+            Path("/workspace"),
+            formats=("svg", "png"),
+            update=False,
+            timeout_seconds=30.0,
+        )
+
+    def test_build_rejects_invalid_stdin_json_without_calling_renderer(self):
+        with mock.patch.object(cli, "build_bundle") as build:
+            with mock.patch.object(sys, "stdin", io.StringIO("not-json")):
+                status, stdout, stderr = invoke(["build", "-"])
+
+        self.assertEqual(1, status)
+        self.assertEqual("", stdout)
+        self.assertIn("Expecting value", stderr)
+        build.assert_not_called()
+
+    def test_build_rejects_oversized_stdin_without_calling_renderer(self):
+        oversized = " " * (cli.MAX_STDIN_SPEC_BYTES + 1)
+        with mock.patch.object(cli, "build_bundle") as build:
+            with mock.patch.object(sys, "stdin", io.StringIO(oversized)):
+                status, stdout, stderr = invoke(["build", "-"])
+
+        self.assertEqual(1, status)
+        self.assertEqual("", stdout)
+        self.assertIn("exceeds the", stderr)
+        build.assert_not_called()
+
     def test_build_propagates_png_update_workspace_and_timeout(self):
         bundle = Path("/workspace/diagrams/checkout-architecture")
         with mock.patch.object(cli, "build_bundle", return_value=bundle) as build:

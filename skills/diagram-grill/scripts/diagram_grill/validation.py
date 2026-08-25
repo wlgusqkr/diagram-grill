@@ -13,6 +13,7 @@ from .errors import DiagramValidationError, ValidationIssue
 
 SCHEMA_VERSION = "1.0"
 VALIDATION_MODES = frozenset(("draft", "render"))
+MAX_SPEC_BYTES = 1024 * 1024
 MAX_GROUP_DEPTH = 3
 
 _SCHEMA_PATH = Path(__file__).resolve().parents[2] / "references" / "diagram.schema.json"
@@ -368,7 +369,12 @@ def load_and_validate(path: Path, *, mode: str = "draft") -> Dict[str, Any]:
     """Load a UTF-8 JSON file and validate it for the requested lifecycle mode."""
 
     input_path = Path(path)
-    with input_path.open("r", encoding="utf-8") as input_file:
-        spec = json.load(input_file)
+    with input_path.open("rb") as input_file:
+        payload = input_file.read(MAX_SPEC_BYTES + 1)
+    if len(payload) > MAX_SPEC_BYTES:
+        raise ValueError(
+            "specification exceeds the {}-byte limit".format(MAX_SPEC_BYTES)
+        )
+    spec = json.loads(payload.decode("utf-8"))
     validate_spec(spec, mode=mode)
     return spec

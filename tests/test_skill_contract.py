@@ -73,6 +73,8 @@ class SkillEntrypointContractTests(ContractAssertionsMixin, unittest.TestCase):
             "do not install",
             "explicitly approves this specific brief",
             "Never pass `--update` unless the user explicitly asked",
+            "build -",
+            "without creating a separate input file",
         )
 
     def test_skill_links_all_supporting_references_and_links_resolve(self):
@@ -165,10 +167,12 @@ class WorkflowReferenceContractTests(ContractAssertionsMixin, unittest.TestCase)
     def test_output_and_direction_retry_boundaries_are_explicit(self):
         self.assert_contains_terms(
             self.workflow,
-            "approved temporary spec",
-            "renderer-owned hidden staging directory directly under `diagrams/`",
+            "pass the approved JSON to `diagram_grill_cli.py build -` over process stdin",
+            "renderer may materialize the approved spec only in its own hidden staging directory directly under `diagrams/`",
             "Persistent bundle outputs belong only under `diagrams/<slug>/`",
             "never write them to an arbitrary path",
+            "without creating a standalone input spec",
+            "may buffer stdin internally",
             "If the user overrode direction, preserve that direction",
             "If direction was agent-selected",
             "retry may switch `LR` to `TB` or `TB` to `LR`",
@@ -273,7 +277,7 @@ class ArchitectureBriefContractTests(ContractAssertionsMixin, unittest.TestCase)
             "diagram.png when available or useful",
             "explicitly update",
             "at most one layout-only retry",
-            "approved temporary spec",
+            "approved JSON enters over stdin",
             "renderer-owned hidden staging directly under diagrams/",
             "bundle outputs only under diagrams/<slug>/",
             "preserve a user override",
@@ -336,8 +340,9 @@ class SecurityReferenceContractTests(ContractAssertionsMixin, unittest.TestCase)
             "bounded",
             "staging directory",
             "timeout",
-            "approved temporary spec",
-            "renderer-owned hidden staging directory directly under `diagrams/`",
+            "accept at most 1 MiB of approved JSON over stdin",
+            "materialize it only in a bounded, renderer-owned hidden staging directory directly under `diagrams/`",
+            "may buffer stdin internally",
             "Persistent bundle outputs belong only under `diagrams/<slug>/`",
             "never an arbitrary or user-supplied path",
         )
