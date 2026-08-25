@@ -59,6 +59,14 @@ def create_parser() -> argparse.ArgumentParser:
     preflight.add_argument("--json", action="store_true", help="Emit JSON output.")
     preflight.set_defaults(handler=_command_preflight)
 
+    evidence = commands.add_parser(
+        "evidence", help="Read bounded UTF-8 evidence without following symlinks."
+    )
+    evidence.add_argument("--repo", type=Path, required=True, metavar="PATH")
+    evidence.add_argument("paths", nargs="+", metavar="FILE")
+    evidence.add_argument("--json", action="store_true", help="Emit JSON output.")
+    evidence.set_defaults(handler=_command_evidence)
+
     catalog = commands.add_parser(
         "catalog", help="Search the pinned diagrams node catalog."
     )
@@ -159,6 +167,39 @@ def _command_preflight(args: argparse.Namespace) -> int:
             marker = "ok" if check["ok"] else "failed"
             print("[{}] {}: {}".format(marker, check["name"], check["message"]), file=output)
     return 0 if ok else 1
+
+
+def _command_evidence(args: argparse.Namespace) -> int:
+    from diagram_grill.evidence import read_evidence_files
+
+    files = read_evidence_files(args.repo, args.paths)
+    if args.json:
+        _write_json(
+            {
+                "ok": True,
+                "files": [
+                    {
+                        "path": item.path,
+                        "sha256": item.sha256,
+                        "size_bytes": item.size_bytes,
+                        "lines": [
+                            {"number": number, "text": line}
+                            for number, line in enumerate(item.lines, start=1)
+                        ],
+                    }
+                    for item in files
+                ],
+            }
+        )
+        return 0
+
+    for index, item in enumerate(files):
+        if index:
+            print()
+        print("== {} (sha256: {}) ==".format(item.path, item.sha256))
+        for number, line in enumerate(item.lines, start=1):
+            print("{}: {}".format(number, line))
+    return 0
 
 
 def _catalog_entry_payload(entry: Any) -> Dict[str, str]:

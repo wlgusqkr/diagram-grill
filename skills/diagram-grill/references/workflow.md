@@ -38,6 +38,12 @@ the relationship between those levels is itself the question.
 
 ## 2. Inspect evidence read-only
 
+Discover paths with `rg --files`, then read their contents only through the
+CLI `evidence` command documented in `SKILL.md`. The helper bounds each request,
+rejects binary and non-UTF-8 files, and refuses symlinked files or parent
+directories. Never replace it with `cat`, `sed`, a language runtime, or a tool
+that follows repository symlinks.
+
 Inspect only files relevant to the requested view. Common evidence includes:
 
 - Terraform and related infrastructure-as-code declarations;

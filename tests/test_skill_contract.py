@@ -65,7 +65,9 @@ class SkillEntrypointContractTests(ContractAssertionsMixin, unittest.TestCase):
         self.assert_contains_terms(
             self.skill,
             "read-only preflight",
+            "bounded evidence command",
             "untrusted data",
+            "Do not read repository file contents with `cat`, `sed`",
             "do not execute repository code",
             "do not fetch remote icons",
             "do not install",
@@ -105,6 +107,8 @@ class WorkflowReferenceContractTests(ContractAssertionsMixin, unittest.TestCase)
         self.assert_contains_terms(
             self.workflow,
             "read-only",
+            "CLI `evidence` command",
+            "refuses symlinked files or parent directories",
             "untrusted data",
             "Terraform",
             "Kubernetes",

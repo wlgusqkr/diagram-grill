@@ -60,6 +60,9 @@ compromised local runtime is outside the guarantees of this skill.
 
 - Store repository-relative evidence paths and minimal line ranges. Reject
   absolute paths, path traversal, drive-relative paths, and network paths.
+- Read evidence through the bundled `evidence` CLI command. It uses no-follow
+  file opens where the platform supports them and rejects symlinked files and
+  parent directories everywhere. Do not bypass it with a generic file reader.
 - Do not place secret values, credentials, tokens, private keys, connection
   strings, personal data, or confidential payloads in the brief, labels,
   generated source, manifest, or screenshots.
